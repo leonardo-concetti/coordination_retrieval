@@ -99,7 +99,7 @@ Remove useless columns
 dat <- dat |> 
   select(-Inner.element.number, -PennElementType, -PennElementName,
          -Latin.Square.Group, -MD5.hash.of.participant.s.IP.address,
-         -Newline., -Controller.name, -EventTime, -Comments)
+         -Newline., -Controller.name, -EventTime, -Comments) # Only include "-Newline." in case we removed questions/answers
 
 ```
 
