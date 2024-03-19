@@ -1,0 +1,168 @@
+---
+title: "Data preparation"
+author: "Leonardo Concetti"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+```{r Packages, include=FALSE, results='hide'}
+
+library(tidyverse)
+
+```
+
+
+A function to read the results file from PCIbex 
+
+```{r}
+
+read.pcibex <- function(filepath, auto.colnames=TRUE, fun.col=function(col,cols){cols[cols==col]<-paste(col,"Ibex",sep=".");return(cols)}) {
+  n.cols <- max(count.fields(filepath,sep=",",quote=NULL),na.rm=TRUE)
+  if (auto.colnames){
+    cols <- c()
+    con <- file(filepath, "r")
+    while ( TRUE ) {
+      line <- readLines(con, n = 1, warn=FALSE)
+      if ( length(line) == 0) {
+        break
+      }
+      m <- regmatches(line,regexec("^# (\\d+)\\. (.+)\\.$",line))[[1]]
+      if (length(m) == 3) {
+        index <- as.numeric(m[2])
+        value <- m[3]
+        if (is.function(fun.col)){
+          cols <- fun.col(value,cols)
+        }
+        cols[index] <- value
+        if (index == n.cols){
+          break
+        }
+      }
+    }
+    close(con)
+    return(read.csv(filepath, comment.char="#", header=FALSE, col.names=cols))
+  }
+  else{
+    return(read.csv(filepath, comment.char="#", header=FALSE, col.names=seq(1:n.cols)))
+  }
+}
+
+```
+
+
+Loading the results file
+
+```{r}
+
+dat <- read.pcibex("results.csv")
+
+```
+
+
+# Data preparation
+
+
+Get rid of practice phase, instructions etc
+
+```{r}
+
+dat <- dat |> 
+  filter(Label == "experimental-trial")
+
+```
+
+
+Get rid of the filler trials
+
+```{r}
+
+dat <- dat |> 
+  filter(condition != "fill")
+
+```
+
+
+Get rid of the questions/answers data (not necessary, use only in certain cases to make the dataset lighter)
+
+```{r}
+
+dat <- dat |> 
+  filter(Newline. == "false")
+
+```
+
+
+Remove useless columns
+
+```{r}
+
+dat <- dat |> 
+  select(-Inner.element.number, -PennElementType, -PennElementName,
+         -Latin.Square.Group, -MD5.hash.of.participant.s.IP.address,
+         -Newline., -Controller.name, -EventTime, -Comments)
+
+```
+
+
+Rename the subjects based on their unique reception time (only necessary in case we don't get the subject ID otherwise).
+
+```{r}
+
+dat <- dat |> 
+  mutate(subj = match(Results.reception.time, unique(Results.reception.time)))
+
+```
+
+
+Now we can get rid of the original reception time column
+
+```{r}
+
+dat <- dat |> 
+  select(- Results.reception.time)
+
+```
+
+
+Rename columns to more managable names 
+
+```{r}
+
+dat <- dat |> 
+  rename(roi_value = Value, rt = Reading.time, sentence = Sentence..or.sentence.MD5.,
+         roi_number = Parameter, list = group)
+
+```
+
+
+Arrange the columns in the desired order
+
+```{r}
+
+dat <- dat |> 
+  select(subj, list, item, condition, roi_number, roi_value, rt, sentence)
+
+```
+
+
+Make sure RTs are interpreted as numbers and not characters
+
+```{r}
+
+class(dat$rt)
+
+dat <- dat |> 
+  mutate(rt = as.numeric(rt))
+
+class(dat$rt)
+
+```
+
+
+# Save the clean dataset 
+
+```{r}
+
+write_csv(dat, "C:\Users\lconc\OneDrive - student.unisi.it\PhD - DISPOC\Projects\2 - Year 2\coordination_retrieval\coord_spr.csv")
+
+```
