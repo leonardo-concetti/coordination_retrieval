@@ -163,6 +163,6 @@ class(dat$rt)
 
 ```{r}
 
-write_csv(dat, "C:\Users\lconc\OneDrive - student.unisi.it\PhD - DISPOC\Projects\2 - Year 2\coordination_retrieval\coord_spr.csv")
+write_csv(dat, r"[C:\Users\lconc\OneDrive - student.unisi.it\PhD - DISPOC\Projects\2 - Year 2\coordination_retrieval\coord_spr.csv]")
 
 ```
