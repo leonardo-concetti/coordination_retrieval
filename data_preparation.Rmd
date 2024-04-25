@@ -54,7 +54,7 @@ Loading the results file
 
 ```{r}
 
-dat <- read.pcibex("results.csv")
+dat <- read.pcibex("results_pilot.csv")
 
 ```
 
@@ -86,8 +86,8 @@ Get rid of the questions/answers data (not necessary, use only in certain cases 
 
 ```{r}
 
-dat <- dat |> 
-  filter(Newline. == "false")
+# dat <- dat |> 
+#  filter(Newline. == "false")
 
 ```
 
@@ -99,7 +99,28 @@ Remove useless columns
 dat <- dat |> 
   select(-Inner.element.number, -PennElementType, -PennElementName,
          -Latin.Square.Group, -MD5.hash.of.participant.s.IP.address,
-         -Newline., -Controller.name, -EventTime, -Comments) # Only include "-Newline." in case we removed questions/answers
+         -Newline., -Controller.name, -EventTime, -Comments, -Label,
+         -STUDY_ID, -SESSION_ID, -Order.number.of.item) # Only include "-Newline." in case we removed questions/answers
+
+```
+
+
+Remove metadata from each trial starting parameter
+
+```{r}
+
+dat <- dat |> 
+  filter(!Parameter %in% c("_Trial_", "_Header_"))
+
+```
+
+
+Convert subject IDs to numbers starting from 1
+
+```{r}
+
+dat <- dat |> 
+  mutate(PROLIFIC_ID = as.integer(factor(PROLIFIC_ID, levels = unique(PROLIFIC_ID))))
 
 ```
 
@@ -108,8 +129,8 @@ Rename the subjects based on their unique reception time (only necessary in case
 
 ```{r}
 
-dat <- dat |> 
-  mutate(subj = match(Results.reception.time, unique(Results.reception.time)))
+# dat <- dat |> 
+ # mutate(subj = match(Results.reception.time, unique(Results.reception.time)))
 
 ```
 
@@ -124,13 +145,87 @@ dat <- dat |>
 ```
 
 
-Rename columns to more managable names 
+Rename columns to more manageable names 
 
 ```{r}
 
 dat <- dat |> 
   rename(roi_value = Value, rt = Reading.time, sentence = Sentence..or.sentence.MD5.,
-         roi_number = Parameter, list = group)
+         roi_number = Parameter, list = group, subj = PROLIFIC_ID)
+
+```
+
+
+Separate data from sentences and question/answer
+
+```{r}
+
+dat <- dat |> 
+  mutate(selection = case_when(
+    roi_value %in% c("Si", "No") ~ roi_value,
+                               FALSE ~ NA_character_)
+    )
+
+
+```
+
+
+Paste the selected answer to each row of that trial 
+
+```{r}
+
+ # Define a function to replace NA values with non-NA values within each group
+replace_na_with_non_na <- function(x) {
+  non_na_value <- na.omit(x)[1]  # Get the first non-NA value
+  replace(x, is.na(x), non_na_value)  # Replace NA values with the non-NA value
+}
+
+
+dat <- dat |> 
+  group_by(item, subj) |> 
+  mutate(selection = replace_na_with_non_na(selection)) |> 
+  ungroup()
+
+```
+
+
+Change "Si" into "si" and "No" into "no" to avoid confusion with capital letters
+
+```{r}
+
+dat <- dat |> 
+  mutate(
+    roi_value = case_when(
+      roi_value == "Si" ~ "si",
+      roi_value == "No" ~ "no",
+      TRUE ~ roi_value
+    ),
+    selection = case_when(
+      selection == "Si" ~ "si",
+      selection == "No" ~ "no",
+      TRUE ~ selection
+    )
+  )
+
+```
+
+
+
+Add a column with correct/incorrect answer info
+
+```{r}
+
+dat <- dat |> 
+mutate(correct = if_else(answer == selection, 1, 0))
+
+```
+
+
+Add a column for trial ID
+
+```{r}
+
+
 
 ```
 
@@ -140,7 +235,7 @@ Arrange the columns in the desired order
 ```{r}
 
 dat <- dat |> 
-  select(subj, list, item, condition, roi_number, roi_value, rt, sentence)
+  select(subj, list, item, condition, roi_number, roi_value, rt, sentence, question, answer, selection, correct)  #remember to add here any other column that you did not remove from the df
 
 ```
 
