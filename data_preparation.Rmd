@@ -100,7 +100,7 @@ dat <- dat |>
   select(-Inner.element.number, -PennElementType, -PennElementName,
          -Latin.Square.Group, -MD5.hash.of.participant.s.IP.address,
          -Newline., -Controller.name, -EventTime, -Comments, -Label,
-         -STUDY_ID, -SESSION_ID, -Order.number.of.item) # Only include "-Newline." in case we removed questions/answers
+         -STUDY_ID, -SESSION_ID, -Order.number.of.item)
 
 ```
 
@@ -225,7 +225,8 @@ Add a column for trial ID
 
 ```{r}
 
-
+dat <- dat %>%
+    mutate(trial = rep(1:(ceiling(n() / 13)), each = 13)[1:n()])
 
 ```
 
@@ -235,7 +236,7 @@ Arrange the columns in the desired order
 ```{r}
 
 dat <- dat |> 
-  select(subj, list, item, condition, roi_number, roi_value, rt, sentence, question, answer, selection, correct)  #remember to add here any other column that you did not remove from the df
+  select(subj, list, trial, item, condition, roi_number, roi_value, rt, sentence, question, answer, selection, correct)  #remember to add here any other column that you did not remove from the df
 
 ```
 
