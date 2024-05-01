@@ -221,7 +221,7 @@ mutate(correct = if_else(answer == selection, 1, 0))
 ```
 
 
-Add a column for trial ID
+Add a column for trial ID (*this only works after removing fillers!* fillers don't have a fixed length of 13 roi each)
 
 ```{r}
 
@@ -264,6 +264,8 @@ xtabs(~ subj + as.numeric(item), dat)
 dat$roi_value[dat$roi_number == 10 & dat$condition != "fill"] #to check that the matrix verb is always in roi number 10
 
 dat$roi_value[dat$roi_number == 5 & dat$condition != "fill"] #to check that the RC verb is always in roi number 5
+
+length(unique(dat$trial))
 
 ```
 
