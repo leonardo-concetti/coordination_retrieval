@@ -54,7 +54,7 @@ Loading the results file
 
 ```{r}
 
-dat <- read.pcibex("results_pilot.csv")
+dat <- read.pcibex("results.csv")
 
 ```
 
@@ -67,17 +67,17 @@ Get rid of practice phase, instructions etc
 ```{r}
 
 dat <- dat |> 
-  filter(Label == "experimental-trial")
+  filter(Label %in% c("experimental-experimental", "experimental-filler"))
 
 ```
 
 
-Get rid of the filler trials
+Get rid of the filler trials (only do this after having checked everything is ok, including accuracy of participants etc)
 
 ```{r}
 
-dat <- dat |> 
-  filter(condition != "fill")
+# dat <- dat |> 
+  # filter(condition != "fill")
 
 ```
 
@@ -236,7 +236,8 @@ Arrange the columns in the desired order
 ```{r}
 
 dat <- dat |> 
-  select(subj, list, trial, item, condition, roi_number, roi_value, rt, sentence, question, answer, selection, correct)  #remember to add here any other column that you did not remove from the df
+  select(subj, list, trial, item, condition, roi_number, roi_value, rt, sentence, 
+         question, question_type, answer, selection, correct, item_type)  #remember to add here any other column that you did not remove from the data frame
 
 ```
 
@@ -251,6 +252,18 @@ dat <- dat |>
   mutate(rt = as.numeric(rt))
 
 class(dat$rt)
+
+```
+
+Check design
+
+```{r}
+
+xtabs(~ subj + as.numeric(item), dat)
+
+dat$roi_value[dat$roi_number == 10 & dat$condition != "fill"] #to check that the matrix verb is always in roi number 10
+
+dat$roi_value[dat$roi_number == 5 & dat$condition != "fill"] #to check that the RC verb is always in roi number 5
 
 ```
 
