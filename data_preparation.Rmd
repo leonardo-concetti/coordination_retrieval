@@ -50,16 +50,65 @@ read.pcibex <- function(filepath, auto.colnames=TRUE, fun.col=function(col,cols)
 ```
 
 
-Loading the results file
+# Load the dataset, check submission qintegrity and quality.
+
+
+Load the split data sets and merge them
 
 ```{r}
 
-dat <- read.pcibex("results.csv")
+df1 <- read.pcibex("results_0.60.csv")
+df2 <- read.pcibex("results_61.120.csv")
+df3 <- read.pcibex("results_121.180.csv")
+df4 <- read.pcibex("results_181.240.csv")
+
+dat <- bind_rows(df1, df2, df3, df4)
 
 ```
 
 
-# Data preparation
+Convert time stamps from Unix time to local time
+
+```{r}
+
+dat$local_time <- as.POSIXct(dat$Results.reception.time, origin="1970-01-01", tz="Europe/Rome")
+
+```
+
+
+Check number of subjects
+
+```{r}
+
+length(unique(dat$PROLIFIC_ID))
+
+```
+
+
+Check if someone failed the attention checks
+
+```{r}
+
+dat |> 
+  filter(Label == "AttentionCheck", PennElementName == "Question") |> 
+  summarise(attention_failed = sum(Value == "Si", na.rm = TRUE),
+            attention_ok = sum(Value == "No", na.rm = TRUE))
+
+dat |> 
+  filter(Label == "AttentionCheck", PennElementName == "Question") |> 
+  group_by(PROLIFIC_ID) |> 
+  summarise(attention_check_answer = Value)
+
+dat |> 
+  filter(Label == "AttentionCheck", PennElementName == "Question") |> 
+  group_by(PROLIFIC_ID) |> 
+  summarise(attention_failed = sum(Value == "Si", na.rm = TRUE),
+            attention_ok = sum(Value == "No", na.rm = TRUE))
+
+
+```
+
+# Start pre-processing
 
 
 Get rid of practice phase, instructions etc
@@ -72,35 +121,15 @@ dat <- dat |>
 ```
 
 
-Get rid of the filler trials (only do this after having checked everything is ok, including accuracy of participants etc)
-
-```{r}
-
-# dat <- dat |> 
-  # filter(condition != "fill")
-
-```
-
-
-Get rid of the questions/answers data (not necessary, use only in certain cases to make the dataset lighter)
-
-```{r}
-
-# dat <- dat |> 
-#  filter(Newline. == "false")
-
-```
-
-
 Remove useless columns
 
 ```{r}
 
 dat <- dat |> 
-  select(-Inner.element.number, -PennElementType, -PennElementName,
+  select(-Inner.element.number, -PennElementType,
          -Latin.Square.Group, -MD5.hash.of.participant.s.IP.address,
-         -Newline., -Controller.name, -EventTime, -Comments, -Label,
-         -STUDY_ID, -SESSION_ID, -Order.number.of.item)
+         -Newline., -Controller.name, -EventTime, -Comments,
+         -STUDY_ID, -SESSION_ID, -Order.number.of.item, - Results.reception.time)
 
 ```
 
@@ -115,46 +144,7 @@ dat <- dat |>
 ```
 
 
-Convert subject IDs to numbers starting from 1
-
-```{r}
-
-dat <- dat |> 
-  mutate(PROLIFIC_ID = as.integer(factor(PROLIFIC_ID, levels = unique(PROLIFIC_ID))))
-
-```
-
-
-Rename the subjects based on their unique reception time (only necessary in case we don't get the subject ID otherwise).
-
-```{r}
-
-# dat <- dat |> 
- # mutate(subj = match(Results.reception.time, unique(Results.reception.time)))
-
-```
-
-
-Now we can get rid of the original reception time column
-
-```{r}
-
-dat <- dat |> 
-  select(- Results.reception.time)
-
-```
-
-
-Rename columns to more manageable names 
-
-```{r}
-
-dat <- dat |> 
-  rename(roi_value = Value, rt = Reading.time, sentence = Sentence..or.sentence.MD5.,
-         roi_number = Parameter, list = group, subj = PROLIFIC_ID)
-
-```
-
+# Adding accuracy data
 
 Separate data from sentences and question/answer
 
@@ -162,10 +152,9 @@ Separate data from sentences and question/answer
 
 dat <- dat |> 
   mutate(selection = case_when(
-    roi_value %in% c("Si", "No") ~ roi_value,
+    Value %in% c("Si", "No") ~ Value,
                                FALSE ~ NA_character_)
     )
-
 
 ```
 
@@ -182,7 +171,7 @@ replace_na_with_non_na <- function(x) {
 
 
 dat <- dat |> 
-  group_by(item, subj) |> 
+  group_by(item, PROLIFIC_ID) |> 
   mutate(selection = replace_na_with_non_na(selection)) |> 
   ungroup()
 
@@ -195,10 +184,10 @@ Change "Si" into "si" and "No" into "no" to avoid confusion with capital letters
 
 dat <- dat |> 
   mutate(
-    roi_value = case_when(
-      roi_value == "Si" ~ "si",
-      roi_value == "No" ~ "no",
-      TRUE ~ roi_value
+    Value = case_when(
+      Value == "Si" ~ "si",
+      Value == "No" ~ "no",
+      TRUE ~ Value
     ),
     selection = case_when(
       selection == "Si" ~ "si",
@@ -208,7 +197,6 @@ dat <- dat |>
   )
 
 ```
-
 
 
 Add a column with correct/incorrect answer info
@@ -221,23 +209,100 @@ mutate(correct = if_else(answer == selection, 1, 0))
 ```
 
 
-Add a column for trial ID (*this only works after removing fillers!* fillers don't have a fixed length of 13 roi each)
-
-```{r}
-
-dat <- dat %>%
-    mutate(trial = rep(1:(ceiling(n() / 13)), each = 13)[1:n()])
-
-```
-
-
-Arrange the columns in the desired order
+Remove answers rows
 
 ```{r}
 
 dat <- dat |> 
-  select(subj, list, trial, item, condition, roi_number, roi_value, rt, sentence, 
-         question, question_type, answer, selection, correct, item_type)  #remember to add here any other column that you did not remove from the data frame
+  filter(!PennElementName == "Question")
+
+```
+
+
+Now we can remove Penn.element.name column 
+
+```{r}
+
+dat <- dat |> 
+  select(-PennElementName)
+
+```
+
+
+Check RT NAs
+
+```{r}
+
+any(is.na(dat$Reading.time))
+
+```
+
+
+# Quality checks
+
+
+Check accuracy and mean RTs by participant 
+
+
+```{r}
+
+dat |> 
+  group_by(PROLIFIC_ID) |> 
+  summarize(mean_correct = round(mean(correct), 2), 
+            rt = mean(Reading.time, na.rm = TRUE))
+
+
+dat |> 
+  group_by(PROLIFIC_ID) |> 
+  summarize(mean_correct_exp = round(mean(correct[item_type == "experimental"]), 2),
+            mean_correct_fill = round(mean(correct[item_type == "filler"]), 2), 
+            rt_exp = mean(Reading.time[item_type == "experimental"], na.rm = TRUE),
+            rt_fill = mean(Reading.time[item_type == "filler"], na.rm = TRUE))
+```
+
+
+Check mean RTs by ROI for each participant
+
+```{r}
+
+dat |> 
+  group_by(PROLIFIC_ID) |> 
+  filter(item_type == "experimental") |> 
+  summarize(mean_correct = round(mean(correct), 2),
+            rt_rc_pre = mean(rt[roi_number == 4], na.rm = TRUE),
+            rt_rc = mean(rt[roi_number == 5], na.rm = TRUE),
+            rt_rc_spill = mean(rt[roi_number == 6], na.rm = TRUE),
+            rt_mv_pre = mean(rt[roi_number == 9], na.rm = TRUE),
+            rt_mv = mean(rt[roi_number == 10], na.rm = TRUE),
+            rt_mv_spill = mean(rt[roi_number == 11], na.rm = TRUE),
+            rt_end = mean(rt[roi_number == 12], na.rm = TRUE),
+            rt_tot = mean(rt, na.rm = TRUE)
+            )
+
+```
+
+
+
+**everything looks good so far**
+
+
+Convert subject IDs to numbers starting from 1
+
+```{r}
+
+dat <- dat |> 
+  mutate(PROLIFIC_ID = as.integer(factor(PROLIFIC_ID, levels = unique(PROLIFIC_ID))))
+
+```
+
+
+Rename columns to more manageable names 
+
+```{r}
+
+dat <- dat |> 
+  rename(roi_value = Value, rt = Reading.time, sentence = Sentence..or.sentence.MD5.,
+         roi_number = Parameter, list = group, subj = PROLIFIC_ID, label = Label)
 
 ```
 
@@ -266,6 +331,47 @@ dat$roi_value[dat$roi_number == 10 & dat$condition != "fill"] #to check that the
 dat$roi_value[dat$roi_number == 5 & dat$condition != "fill"] #to check that the RC verb is always in roi number 5
 
 length(unique(dat$trial))
+
+```
+
+
+Get rid of the filler trials (only do this after having checked everything is ok, including accuracy of participants etc)
+
+```{r}
+
+dat <- dat |> 
+  filter(condition != "fill")
+
+```
+
+
+Get rid of the questions/answers data (not necessary, use only in certain cases to make the dataset lighter)
+
+```{r}
+
+# dat <- dat |> 
+#  filter(Newline. == "false")
+
+```
+
+
+Add a column for trial ID (*this only works after removing fillers!* fillers don't have a fixed length of 13 roi each)
+
+```{r}
+
+dat <- dat %>%
+    mutate(trial = rep(1:(ceiling(n() / 13)), each = 13)[1:n()])
+
+```
+
+
+Arrange the columns in the desired order
+
+```{r}
+
+dat <- dat |> 
+  select(subj, list, trial, item, condition, roi_number, roi_value, rt, sentence, 
+         question, question_type, answer, selection, correct, item_type, label)  #remember to add here any other column that you did not remove from the data frame
 
 ```
 
