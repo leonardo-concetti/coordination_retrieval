@@ -67,6 +67,15 @@ dat <- bind_rows(df1, df2, df3, df4)
 ```
 
 
+Save the merged dataset 
+
+```{r}
+
+write_csv(dat, r"[C:\Users\lconc\OneDrive - student.unisi.it\PhD - DISPOC\Projects\2 - Year 2\coordination_retrieval\concetti24_coord_spr.csv]")
+
+```
+
+
 Convert time stamps from Unix time to local time
 
 ```{r}
@@ -126,10 +135,10 @@ Remove useless columns
 ```{r}
 
 dat <- dat |> 
-  select(-Inner.element.number, -PennElementType,
-         -Latin.Square.Group, -MD5.hash.of.participant.s.IP.address,
-         -Newline., -Controller.name, -EventTime, -Comments,
-         -STUDY_ID, -SESSION_ID, -Order.number.of.item, - Results.reception.time)
+  select(-Inner.element.number, -PennElementType, -Latin.Square.Group,
+         -MD5.hash.of.participant.s.IP.address, -Newline., -Controller.name,
+         -EventTime, -Comments, -STUDY_ID, -SESSION_ID, -Order.number.of.item, 
+         -Results.reception.time)
 
 ```
 
@@ -144,7 +153,7 @@ dat <- dat |>
 ```
 
 
-# Adding accuracy data
+# Adding accuracy data column
 
 Separate data from sentences and question/answer
 
@@ -229,7 +238,9 @@ dat <- dat |>
 ```
 
 
-Check RT NAs
+# Manage NAs, RTs, participants IDs, colnames
+
+Check Reading Time NAs
 
 ```{r}
 
@@ -237,54 +248,18 @@ any(is.na(dat$Reading.time))
 
 ```
 
-
-# Quality checks
-
-
-Check accuracy and mean RTs by participant 
-
+Make sure RTs are interpreted as numbers and not characters
 
 ```{r}
 
-dat |> 
-  group_by(PROLIFIC_ID) |> 
-  summarize(mean_correct = round(mean(correct), 2), 
-            rt = mean(Reading.time, na.rm = TRUE))
+class(dat$Reading.time)
 
+dat <- dat |> 
+  mutate(Reading.time = as.numeric(Reading.time))
 
-dat |> 
-  group_by(PROLIFIC_ID) |> 
-  summarize(mean_correct_exp = round(mean(correct[item_type == "experimental"]), 2),
-            mean_correct_fill = round(mean(correct[item_type == "filler"]), 2), 
-            rt_exp = mean(Reading.time[item_type == "experimental"], na.rm = TRUE),
-            rt_fill = mean(Reading.time[item_type == "filler"], na.rm = TRUE))
-```
-
-
-Check mean RTs by ROI for each participant
-
-```{r}
-
-dat |> 
-  group_by(PROLIFIC_ID) |> 
-  filter(item_type == "experimental") |> 
-  summarize(mean_correct = round(mean(correct), 2),
-            rt_rc_pre = mean(rt[roi_number == 4], na.rm = TRUE),
-            rt_rc = mean(rt[roi_number == 5], na.rm = TRUE),
-            rt_rc_spill = mean(rt[roi_number == 6], na.rm = TRUE),
-            rt_mv_pre = mean(rt[roi_number == 9], na.rm = TRUE),
-            rt_mv = mean(rt[roi_number == 10], na.rm = TRUE),
-            rt_mv_spill = mean(rt[roi_number == 11], na.rm = TRUE),
-            rt_end = mean(rt[roi_number == 12], na.rm = TRUE),
-            rt_tot = mean(rt, na.rm = TRUE)
-            )
+class(dat$Reading.time)
 
 ```
-
-
-
-**everything looks good so far**
-
 
 Convert subject IDs to numbers starting from 1
 
@@ -307,18 +282,6 @@ dat <- dat |>
 ```
 
 
-Make sure RTs are interpreted as numbers and not characters
-
-```{r}
-
-class(dat$rt)
-
-dat <- dat |> 
-  mutate(rt = as.numeric(rt))
-
-class(dat$rt)
-
-```
 
 Check design
 
@@ -330,12 +293,110 @@ dat$roi_value[dat$roi_number == 10 & dat$condition != "fill"] #to check that the
 
 dat$roi_value[dat$roi_number == 5 & dat$condition != "fill"] #to check that the RC verb is always in roi number 5
 
-length(unique(dat$trial))
 
 ```
 
 
-Get rid of the filler trials (only do this after having checked everything is ok, including accuracy of participants etc)
+# Quality checks
+
+
+Check accuracy and mean RTs by participant, first on the whole session, then divided by experimental vs filler trials
+
+
+```{r}
+
+dat |> 
+  group_by(subj) |> 
+  summarize(mean_correct = round(mean(correct), 2), 
+            rt = round(mean(rt, na.rm = TRUE), ))
+
+
+dat |> 
+  group_by(subj) |> 
+  summarize(mean_correct_exp = round(mean(correct[item_type == "experimental"]), 2),
+            mean_correct_fill = round(mean(correct[item_type == "filler"]), 2), 
+            rt_exp = round(mean(rt[item_type == "experimental"], na.rm = TRUE), ),
+            rt_fill = round(mean(rt[item_type == "filler"], na.rm = TRUE), ))
+```
+
+*Lower-accuracy participants (< 85% or suspect combo of ACCxRT):* 
+
+- 5 = 0.87 (tot) with 252 mean_rt (tot) - 0.78 (exp) with 245 mean_rt (exp) and 0.95 (fill) with 259 mean_rt (fill)
+
+- 9 = 0.82 (tot) with 424 mean_rt (tot) - 0.66 (exp) with 402 mean_rt (exp) and 0.98 (fill) with 445 mean_rt (fill)
+
+- 71 = 0.77 (tot) with 430 mean_rt (tot) - 0.59 (exp) with 426 mean_rt (exp) and 0.93 (fill) with 434 mean_rt (fill)  			
+
+- 86 = 0.76 (tot) with 318 mean_rt (tot) - 0.66 (exp) with 278 mean_rt (exp) and 0.85 (fill) with 355 mean_rt (fill)
+
+- 88 = 0.85 (tot) with 295 mean_rt (tot) -	0.75 (exp) with 323 mean_rt (exp) and 0.95 (fill) with 269 mean_rt (fill)		
+
+- 138 = 0.80 (tot) with 303 mean_rt (tot) - 0.72 (exp) with 287 mean_rt (exp) and 0.89 (fill) with 317 mean_rt (fill)
+
+- 173 = 0.84 (tot) with 571 mean_rt (tot) - 0.69 (exp) with 586 mean_rt (exp) and 0.98 (fill) with 557 mean_rt (fill)
+
+- 177 = 0.86 (tot) with 286 mean_rt (tot) - 0.78 (exp) with 277 mean_rt (exp) and 0.93 (fill) with 296 mean_rt (fill)
+
+- 194 = 0.83 (tot) with 420 mean_rt (tot) - 0.72 (exp) with 413 mean_rt (exp) and 0.93 (fill) with 425 mean_rt (fill)
+
+
+*Participants with < 75% acc on experimental items or weird RTs:* 
+
+- 13 = 0.87 (tot) with 577 mean_rt (tot) - 0.78 (exp) with 603 mean_rt (exp) and 0.96 (fill)	with 553 mean_rt (fill)
+
+- 44 = 0.86 (tot) with 710 mean_rt (tot) - 0.75 (exp) with 910 mean_rt (exp) and 0.97 (fill) with 520 mean_rt (fill)
+
+- 164 =	0.87 (tot) with mean_rt	1060 (tot) - 0.81 (exp) with 1229 mean_rt (exp) and	0.93 (fill) with 898 mean_rt (fill)
+
+- 185	 = 0.88 (tot) with 847 mean_rt (tot) - 0.78 (exp) with 452 mean_rt (exp) and 0.98 (fill) with 1223 mean_rt (fill)
+
+- 199 = 0.96 (tot) with 2701	mean_rt (tot) - 0.97 (exp) with 4138 mean_rt (exp) and 0.95 (fill) with 1336 mean_rt (fill)
+
+- 216	= 0.91 (tot) with 1892	mean_rt (tot) - 0.88 (exp) with 3397 mean_rt (exp) and 0.94 (fill) with 461 mean_rt (fill)
+
+						
+
+
+Check mean RTs by ROI for each participant
+
+```{r}
+
+dat |> 
+  group_by(subj) |> 
+  filter(item_type == "experimental") |> 
+  summarize(mean_correct = round(mean(correct), 2),
+            rt_rc_pre = round(mean(rt[roi_number == 4], na.rm = TRUE), ),
+            rt_rc = round(mean(rt[roi_number == 5], na.rm = TRUE), ),
+            rt_rc_spill = round(mean(rt[roi_number == 6], na.rm = TRUE), ),
+            rt_mv_pre = round(mean(rt[roi_number == 9], na.rm = TRUE), ),
+            rt_mv = round(mean(rt[roi_number == 10], na.rm = TRUE), ),
+            rt_mv_spill = round(mean(rt[roi_number == 11], na.rm = TRUE), ),
+            rt_end = round(mean(rt[roi_number == 12], na.rm = TRUE), ),
+            rt_tot = round(mean(rt, na.rm = TRUE), )
+            )
+
+```
+
+73 = 2719ms on MV
+
+165 = 2104ms on MV
+
+166 = 2339ms on RCV
+
+189 = 2686ms on RCV + 1655ms on pre_mv
+
+199	= 2034	6343	3776	3481	3339	4963	9591 - 4138(tot)  - what was this guy doing??? (high accuracy though - 0.97)
+
+216	= 36377 mean RT on sentence end - was he taking a pause after reading each sentence? maybe he paused the experiment a couple of times for various minutes and he did so at the end of sentence, before question time. If he did so only after EXP sentences, this explains his weird RT on exp items, but not on fillers, and also good accuracy. 
+
+227 = 2902 on RCV (the rest looks normal and he has 100% accuracy on experimental items)
+	
+
+
+# Last bits of cleaning
+
+
+Get rid of the filler trials (only do this after having checked everything is ok, including accuracy of participants etc and having decided if/what subjects to exclude)
 
 ```{r}
 
@@ -345,22 +406,25 @@ dat <- dat |>
 ```
 
 
-Get rid of the questions/answers data (not necessary, use only in certain cases to make the dataset lighter)
-
-```{r}
-
-# dat <- dat |> 
-#  filter(Newline. == "false")
-
-```
-
 
 Add a column for trial ID (*this only works after removing fillers!* fillers don't have a fixed length of 13 roi each)
 
 ```{r}
 
 dat <- dat %>%
-    mutate(trial = rep(1:(ceiling(n() / 13)), each = 13)[1:n()])
+    mutate(trial = rep(1:(ceiling(n() / 12)), each = 12)[1:n()])
+
+length(unique(dat$trial))
+
+length(unique(dat$trial)) / length(unique(dat$subj))  #the result should be equal to the number of experimental items
+
+```
+Rename a couple of columns
+
+```{r}
+
+dat <- dat |> 
+  rename(answer_expected = answer, answer_selected = selection)
 
 ```
 
@@ -371,7 +435,16 @@ Arrange the columns in the desired order
 
 dat <- dat |> 
   select(subj, list, trial, item, condition, roi_number, roi_value, rt, sentence, 
-         question, question_type, answer, selection, correct, item_type, label)  #remember to add here any other column that you did not remove from the data frame
+         question, question_type, answer_expected, answer_selected, correct)  #remember to add here any other column that you did not remove from the data frame
+
+```
+
+
+Have a look at the resulting df
+
+```{r}
+
+dat |> head(12)
 
 ```
 
