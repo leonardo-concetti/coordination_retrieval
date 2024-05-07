@@ -67,11 +67,20 @@ dat <- bind_rows(df1, df2, df3, df4)
 ```
 
 
-Save the merged dataset 
+Save the merged dataset
 
 ```{r}
 
 write_csv(dat, r"[C:\Users\lconc\OneDrive - student.unisi.it\PhD - DISPOC\Projects\2 - Year 2\coordination_retrieval\concetti24_coord_spr.csv]")
+
+```
+
+
+Load the dataset
+
+```{r}
+
+dat <- read_csv("concetti24_coord_spr.csv")
 
 ```
 
@@ -407,7 +416,7 @@ dat <- dat |>
 
 
 
-Add a column for trial ID (*this only works after removing fillers!* fillers don't have a fixed length of 13 roi each)
+Add a column for trial ID (*this only works after removing fillers!* fillers don't have a fixed length of 12 roi each)
 
 ```{r}
 
@@ -444,7 +453,7 @@ Have a look at the resulting df
 
 ```{r}
 
-dat |> head(12)
+dat |> head(24)
 
 ```
 
