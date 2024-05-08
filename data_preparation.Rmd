@@ -50,7 +50,7 @@ read.pcibex <- function(filepath, auto.colnames=TRUE, fun.col=function(col,cols)
 ```
 
 
-# Load the dataset, check submission qintegrity and quality.
+# Load the dataset, check submission integrity and quality.
 
 
 Load the dataset
