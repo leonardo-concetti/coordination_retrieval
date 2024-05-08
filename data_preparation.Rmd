@@ -53,29 +53,6 @@ read.pcibex <- function(filepath, auto.colnames=TRUE, fun.col=function(col,cols)
 # Load the dataset, check submission qintegrity and quality.
 
 
-Load the split data sets and merge them
-
-```{r}
-
-df1 <- read.pcibex("results_0.60.csv")
-df2 <- read.pcibex("results_61.120.csv")
-df3 <- read.pcibex("results_121.180.csv")
-df4 <- read.pcibex("results_181.240.csv")
-
-dat <- bind_rows(df1, df2, df3, df4)
-
-```
-
-
-Save the merged dataset
-
-```{r}
-
-write_csv(dat, r"[C:\Users\lconc\OneDrive - student.unisi.it\PhD - DISPOC\Projects\2 - Year 2\coordination_retrieval\concetti24_coord_spr.csv]")
-
-```
-
-
 Load the dataset
 
 ```{r}
