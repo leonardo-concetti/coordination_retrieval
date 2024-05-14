@@ -139,9 +139,9 @@ short_summary <- function (x, digits = 2, ...)
 
 # Abstract
 
-The cue-based retrieval theory of sentence processing [3] assume that linguistic items are encoded in Working Memory based on their featural content. Information such as syntactic category and grammatical number are encoded for each item and can then be used as cues for retrieval. Relevant questions in this respect are what exactly constitutes a single item and how detailed is the representation of hierarchical information in working memory.
+The cue-based retrieval theory of sentence processing [3] assumes that linguistic items are encoded in Working Memory based on their featural content. Information such as syntactic category and grammatical number are encoded for each item and can then be used as cues for retrieval. Relevant questions in this respect are what exactly constitutes a single item and how detailed is the representation of hierarchical information in working memory.
 
-  Monosyndetic NP-coordination [5] provides a unique opportunity to investigate the issue. In contrast to early syntactic analyses of coordination, many current accounts [1, 2, 4, 5] propose an asymmetric structure headed by the conjoining element. The two conjuncts are either specifier and complement in a &P [1], or attached by adjunction [4] [see appendix A for an example of &P]. This analysis has direct implications for retrieval: in sentences like “The boy and the girl that the teacher praised are smiling”, the set of cues that are specified upon encountering the matrix VP “are smiling” includes [subject] and [plural]. Neither cue is however found in any of the NPs encountered in the sentence, a fact that would lead to a problematic retrieval, if there was no &P entry in WM. Under a headed account of coordination, the subject “The boy and the girl” is treated as a unique syntactic item, allowing for the [subject] and [plural] features to be encoded in WM and used as cues for retrieval, without the need for additional mechanisms.
+  Monosyndetic NP-coordination [5] provides a unique opportunity to investigate the issue. In contrast to early syntactic analyses of coordination, many current accounts [1, 2, 4, 5] propose an asymmetric structure headed by the conjoining element. The two conjuncts are either specifier and complement in a &P [1], or attached by adjunction [4]. This analysis has direct implications for retrieval: in sentences like “The boy and the girl that the teacher praised are smiling”, the set of cues that are specified upon encountering the matrix VP “are smiling” includes [subject] and [plural]. Neither cue is however found in any of the NPs encountered in the sentence, a fact that would lead to a problematic retrieval, if there was no &P entry in WM. Under a headed account of coordination, the subject “The boy and the girl” is treated as a unique syntactic item, allowing for the [subject] and [plural] features to be encoded in WM and used as cues for retrieval, without the need for additional mechanisms.
   
   A two condition self-paced reading experiment was designed to test the hypothesis that the WM representation of a &P is distinct from the ones associated with the single NPs embedded in it. The experiment will be carried out in Italian, a language with obligatory number agreement, which also allows for the manipulation of Relative Clause attachment. The number marking on the relative clause verb allows to force a different RC attachment in the two conditions: in one case [1a] the whole &P is modified by the RC, while in the other case [1b] only the second conjunct is modified. As a consequence, activation of the &P is predicted to be boosted in [1a], while in [1b] it is the second-conjunct NP that receives the boost due to reactivation. In line with this hypothesis, longer reading times are expected at the matrix verb in [1b] compared to [1a].
   
@@ -183,7 +183,7 @@ velocemente | in ufficio.
 
 H1: Detailed hierarchical information enter the WM representations of each item. &P is encoded in addition to the two DPs it is composed of, and is the correct target for retrieval. A slowdown is expected on the matrix verb (the critical point of retrieval) in condition 1b with respect to 1a.
 
-H0: Detailed hierarchical information are not encoded in the WM entry of each items. There is no &P entry in Working memory and are can thus not be the target for retrieval. No difference in Reading Times is expected on the main verb in the two conditions. 
+H0: Detailed hierarchical information are not encoded in the WM entry of each items. There is no &P entry in Working Memory and can thus not be the target for retrieval. No difference in Reading Times is expected on the main verb in the two conditions. 
 
 
 
@@ -491,13 +491,14 @@ mv |>
 ```
 
 Numerically, there is no difference between the accuracy in the two conditions, but there is a difference between the mean RTs at the Matrix Verb. 
-Let's proceed with a Frequentist Analysis, and then the Bayesian version. 
+Let's proceed with a Frequentist analysis, and then the Bayesian version. 
 
 
 
 ### Frequentist LMEMs
 
-**Critical region (Matrix Verb)**
+
+#Critical region (Matrix Verb)
 
 Maximal model
 
@@ -553,7 +554,7 @@ anova(mv_freq_vi, mv_freq_null)
 ```
 
 
-**Spillover region (critical +1)**
+# Spillover region (critical +1)
 
 Varying intercepts model
 
@@ -592,7 +593,7 @@ anova(mv_spill_freq_vi, mv_spill_freq_null)
 No difference here 
 
 
-**Pre-critical region (critical -1)**
+# Pre-critical region (critical -1)
 
 Varying intercepts model
 
@@ -631,7 +632,7 @@ anova(mv_spill_freq_vi, mv_spill_freq_null)
 No difference here 
 
 
-**Relative Clause verb**
+# Relative Clause verb
 
 Varying intercepts model
 
@@ -669,10 +670,10 @@ anova(rcv_freq_vi, rcv_freq_null)
 
 Interesting, there seems to be a significant difference --> the Relative Clause verb is processed faster in the SINGULAR condition. It could be the sign of an unexpected attachment preference for the RC, where attaching it to the second conjunct is easier than attaching it to the whole &P. 
 
-*BUT* It could also just be due to word length effects --> on the RCV the Sing condition has shorter aux ("ha" vs "hanno"). Let's see if the effect continues in its spillover region. 
+**BUT** It could also just be due to word length effects --> on the RCV the Sing condition has shorter aux ("ha" vs "hanno"). Let's see if the effect continues in its spillover region.
 
 
-**Relative clause spillover region (rcv +1)**
+# Relative clause spillover region (rcv +1)
 
 Varying intercepts model
 
@@ -711,7 +712,7 @@ anova(rcv_spill_freq_vi, rcv_spill_freq_null)
 The effect seems to be reversed in the region following the RC verb (the RC object, for instance "l'intervista / the interview" in the example sentence above), which could signal that the RCV difference was indeed due to word length difference, with subsequent compensation in the following region?
 
 
-**RC onset (RC Verb -1, i.e., "che/that")**
+# RC onset (RC Verb -1, i.e., "che/that")
 
 Varying intercepts model
 
@@ -755,10 +756,10 @@ No difference at all at the RC onset, as I would expect.
 ### Bayesian Analysis
 
 
-*We run various models for each Region of Interest: 3 "agnostic" models with increasing prior sd on the slope, and in the case of the critical region, one hypothesis-driven model with a positive but small prior for the slope*
+**We run various models for each Region of Interest: 3 "agnostic" models with increasing prior sd on the slope, and in the case of the critical region, one hypothesis-driven model with a positive but small prior for the slope**
 
 
-**Critical region (Matrix Verb)**
+# Critical region (Matrix Verb)
 
 
 Agnostic and small - N(0, 0.02)
@@ -976,7 +977,7 @@ gtsave(mv_post_table, file = "mv_post_table.png")
 ```
 
 
-Null model (varying intercepts but no predictor)
+Null model (varying intercepts and slopes but no predictor)
 
 ```{r}
 
@@ -1044,13 +1045,14 @@ bayes_factor(fit_mv_small_post, fit_mv_enth_post)
 ```
 
 
-
-**Spillover region (critical +1)**
-
-**Pre-critical region (critical -1)**
+# Spillover region (critical +1)
 
 
-**Relative Clause Verb**
+# Pre-critical region (critical -1)
+
+
+
+# Relative Clause Verb
 
 
 Agnostic and small - N(0, 0.02)
@@ -1299,7 +1301,6 @@ Agnostic and small - N(0, 0.02)
 bayes_factor(fit_rcv_small_post, fit_rcv_null)
 
 
-
 ```
 
 Agnostic and medium - N(0, 0.05)
@@ -1329,10 +1330,9 @@ bayes_factor(fit_rcv_enth_post, fit_rcv_null)
 ```
 
 
--------------------------------------------------------------------------------------------------------------------------------------------------
 
 
-**Relative Clause Verb spillover region (rcv +1)**
+# Relative Clause Verb spillover region (rcv +1)
 
 
 Agnostic and small - N(0, 0.02)
@@ -1610,9 +1610,9 @@ bayes_factor(fit_rcv_spill_enth_post, fit_rcv_spill_null)
 
 ```
 
-----------------------------------------------------------------------------------------------------------------------------------------------
 
-**Relative Clause onset region (rcv -1)**
+
+# Relative Clause onset region (rcv -1)
 
 
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -1743,13 +1743,4 @@ bayes_factor(fit_mv_slow, fit_mv_slow_null)
 
 
 The effect is bigger and BF gives stronger evidence in its favor. 
-
-
-
-
-
-
-
-
-
 
