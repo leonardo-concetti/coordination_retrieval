@@ -305,7 +305,19 @@ dat |>
             rt_fill = round(mean(rt[item_type == "filler"], na.rm = TRUE), ))
 ```
 
-*Lower-accuracy participants (< 85% or suspect combo of ACCxRT):* 
+
+```{r}
+
+dat |> 
+  group_by(subj) |> 
+  summarize(mean_correct_exp = round(mean(correct[item_type == "experimental"]), 2)) |> 
+  filter(mean_correct_exp < 0.7)
+
+```
+
+
+*Lower-accuracy participants (< 85% global accuracy and/or very fast mean Reading Times):* 
+
 
 - 5 = 0.87 (tot) with 252 mean_rt (tot) - 0.78 (exp) with 245 mean_rt (exp) and 0.95 (fill) with 259 mean_rt (fill)
 
@@ -326,7 +338,7 @@ dat |>
 - 194 = 0.83 (tot) with 420 mean_rt (tot) - 0.72 (exp) with 413 mean_rt (exp) and 0.93 (fill) with 425 mean_rt (fill)
 
 
-*Participants with ~ 75% acc on experimental items or weird RTs:* 
+*Participants with ~ 75% acc on experimental items and/or weird RTs:* 
 
 - 13 = 0.87 (tot) with 577 mean_rt (tot) - 0.78 (exp) with 603 mean_rt (exp) and 0.96 (fill)	with 553 mean_rt (fill)
 
@@ -341,7 +353,7 @@ dat |>
 - 216	= 0.91 (tot) with 1892	mean_rt (tot) - 0.88 (exp) with 3397 mean_rt (exp) and 0.94 (fill) with 461 mean_rt (fill)
 
 						
-**We can decide to drop any participant with <70% accuracy on experimental items --> this would exclude subjects 9, 86, 173**
+**We can decide to drop any participant with <70% accuracy on experimental items --> this would exclude subjects 9, 71, 86, 173**
 
 Check mean RTs by ROI for each participant
 
@@ -377,7 +389,7 @@ dat |>
 
 227 = 2902 on RCV (the rest looks normal and he has 100% accuracy on experimental items)
 	
-**Also consider removing subject 199 or seeing if he has some impact on the results of the analysis**
+**Also consider removing subjects 199 or seeing if he has some impact on the results of the analysis**
 
 # Last bits of cleaning
 
