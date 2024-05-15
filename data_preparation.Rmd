@@ -435,19 +435,19 @@ dat <- dat |>
 ```
 
 
-
-Add a column for trial ID (*this only works after removing fillers!* fillers don't have a fixed length of 12 roi each)
+Add a column for experimental trial ID (*this only works after removing fillers!* fillers don't have a fixed length of 12 roi each)
 
 ```{r}
 
 dat <- dat |> 
   group_by(subj) |> 
-  mutate(trial = rep(1:(ceiling(n() / 12)), each = 12)[1:n()])
+  mutate(trial_exp = rep(1:(ceiling(n() / 12)), each = 12)[1:n()])
 
-length(unique(dat$trial))
+length(unique(dat$trial_exp))
 
 
 ```
+
 
 Check list assignment 
 
@@ -478,7 +478,7 @@ Arrange the columns in the desired order
 ```{r}
 
 dat <- dat |> 
-  select(subj, list, trial, item, condition, roi_number, roi_value, rt, sentence, 
+  select(subj, list, trial, trial_exp, item, condition, roi_number, roi_value, rt, sentence, 
          question, question_type, answer_expected, answer_selected, correct)  #remember to add here any other column that you did not remove from the data frame
 
 ```
