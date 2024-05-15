@@ -409,12 +409,12 @@ Add a column for trial ID (*this only works after removing fillers!* fillers don
 
 ```{r}
 
-dat <- dat %>%
-    mutate(trial = rep(1:(ceiling(n() / 12)), each = 12)[1:n()])
+dat <- dat |> 
+  group_by(subj) |> 
+  mutate(trial = rep(1:(ceiling(n() / 12)), each = 12)[1:n()])
 
 length(unique(dat$trial))
 
-length(unique(dat$trial)) / length(unique(dat$subj))  #the result should be equal to the number of experimental items
 
 ```
 
