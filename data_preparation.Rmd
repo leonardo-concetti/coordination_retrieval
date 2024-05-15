@@ -306,6 +306,8 @@ dat |>
 ```
 
 
+Check which subject have <70% accuracy on experimental items
+
 ```{r}
 
 dat |> 
@@ -392,6 +394,35 @@ dat |>
 **Also consider removing subjects 199 or seeing if he has some impact on the results of the analysis**
 
 # Last bits of cleaning
+
+
+
+Add a column for Trial ID
+
+```{r}
+
+dat <- dat |>
+  group_by(subj) |>
+  mutate(trial = match(sentence, unique(sentence)))
+
+```
+
+
+Check if that worked as expected
+
+```{r}
+
+dat |>
+  group_by(subj) |>
+  summarise(unique_sentences = n_distinct(sentence),
+            total_trials = n_distinct(trial))
+
+dat |>
+  filter(subj == 1) |>
+  select(subj, sentence, trial)
+
+```
+
 
 
 Get rid of the filler trials (only do this after having checked everything is ok, including accuracy of participants etc and having decided if/what subjects to exclude)
