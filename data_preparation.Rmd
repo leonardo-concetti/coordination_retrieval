@@ -429,7 +429,8 @@ dat |>
 
 ```
 
-It's expected that it does not result in a perfect 50-50 balance, as we cannot control which subject leave the task before its end, which ones get timed-out etc. But it's still pretty balanced, so nothing to worry about. 
+It's expected that it does not result in a perfect 50-50 balance, as we cannot control which subjects leave the task before its end, which ones get timed-out etc. But it's still pretty balanced, so nothing to worry about. 
+
 
 Rename a couple of columns
 
