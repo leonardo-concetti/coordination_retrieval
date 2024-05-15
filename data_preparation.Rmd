@@ -92,7 +92,7 @@ dat |>
 dat |> 
   filter(Label == "AttentionCheck", PennElementName == "Question") |> 
   group_by(PROLIFIC_ID) |> 
-  summarise(attention_check_answer = Value)
+  reframe(attention_check_answer = Value)
 
 dat |> 
   filter(Label == "AttentionCheck", PennElementName == "Question") |> 
