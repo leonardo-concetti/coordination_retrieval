@@ -228,6 +228,7 @@ dens_dat <- ggplot(dat, aes(x = rt)) +
 dens_dat
 
 ```
+
 The insanely high values (mostly at the end of sentences) don't allow for a realistic visualization.
 
 
@@ -240,6 +241,8 @@ summary(dat$rt)
 dat$rt[dat$rt > 100000]
 
 dat$rt[dat$rt > 6000]
+
+dat$rt[dat$rt < 100]
 
 ```
 
@@ -256,6 +259,15 @@ dat <- dat |>
 
 ```
 
+
+Remove RTs shorter than 100ms (or some other value) which are not meaningful data points (they are likely accidental spacebar presses that skipped an ROI before the subject could read it)
+
+```{r}
+
+dat <- dat |> 
+  filter(rt >= 100)
+
+```
 
 Look at the data again
 
@@ -294,7 +306,7 @@ dens_dat <- ggplot(dat, aes(x = rt)) +
     data = subset(dat, rt >= lower_bound & rt <= upper_bound)) +
   labs(x = "Reading Time",
        y = "Density") + 
-  ggtitle("Reading Times with 95% interval highlighted") +
+  ggtitle("Reading Times (whole dataset) with 95% interval highlighted") +
   theme_minimal() +
   theme(plot.title = element_text(size = 12), axis.title = element_text(size = 10))
 
@@ -313,6 +325,17 @@ dat <- dat |>
   mutate(singplur = if_else(dat$condition == "sing",1/2,-1/2))
 
 ```
+
+
+Remove low-accuracy participants (subjects 9, 71, 86, 173 --> they all have <70% accuracy on experimental items)
+
+```{r}
+
+dat <- dat |> 
+  filter(!subj %in% c(9, 71, 86, 173))
+
+```
+
 
 
 Generate subsets for the single regions (if necessary):
@@ -433,7 +456,7 @@ dens_dat <- ggplot(mv, aes(x = rt)) +
     data = subset(mv, rt >= lower_bound & rt <= upper_bound)) +
   labs(x = "Reading Time",
        y = "Density") + 
-  ggtitle("Reading Times with 95% interval highlighted") +
+  ggtitle("Reading Times (matrix verb) with 95% interval highlighted") +
   theme_minimal() +
   theme(plot.title = element_text(size = 12), axis.title = element_text(size = 10))
 
@@ -491,9 +514,105 @@ mv |>
 ```
 
 Numerically, there is no difference between the accuracy in the two conditions, but there is a difference between the mean RTs at the Matrix Verb. 
+
+**Additional visual checks**
+
+Visualize RTs by condition for each participant
+
+```{r, fig.height=25, fig.width=25}
+
+rt_bysubj <- ggplot(
+  mv,
+  aes(y = log(rt), x = condition)
+  ) +
+  geom_jitter(alpha = 0.7) + 
+  theme(plot.title = element_text(size = 10), axis.title = element_text(size = 10)) +
+  facet_wrap(~ subj, ncol = 15)
+
+rt_bysubj
+
+ggsave(
+  filename = "scatterplot_of_RTs_by_condition_for_each_subject.png",
+  plot = rt_bysubj + theme_minimal() + theme(plot.background = element_rect(fill = "white")),
+  dpi = 300,
+  width = 25,  
+  height = 25
+  )
+
+
+
+```
+
+
+
+*This currently does not work as intended (I want a horizontal line showing the difference between conditions means, on top of the scatterplots)*
+
+```{r, fig.height=25, fig.width=25}
+
+# Calculate the mean RT for each subject and condition separately
+mean_rt <- mv |> 
+  group_by(subj, condition) |>
+  summarise(mean_rt = mean(rt)) |>
+  pivot_wider(names_from = condition, values_from = mean_rt)
+
+# Calculate the difference in means between conditions
+mean_diff <- mean_rt |>
+  mutate(diff = `sing` - `plur`) |>
+  select(subj, diff)
+
+
+# Create the plot
+rt_bysubj <- ggplot(
+  mv,
+  aes(y = log(rt), x = condition)
+  ) +
+  geom_jitter(alpha = 0.7) + 
+  theme(plot.title = element_text(size = 10), axis.title = element_text(size = 10)) +
+  facet_wrap(~ subj, ncol = 15)
+
+# Add lines for the mean difference between conditions
+rt_bysubj <- rt_bysubj +
+  geom_segment(data = mean_rt, aes(x = 1, xend = 2, y = sing, yend = plur), color = "red")
+
+
+rt_bysubj
+
+
+
+
+
+```
+
+
+
+```{r, fig.height=25, fig.width=25}
+
+rt_bysubj_box <- ggplot(
+  mv,
+  aes(y = log(rt), x = condition)
+  ) +
+  geom_boxplot(alpha = 0.7) + 
+  theme(plot.title = element_text(size = 10), axis.title = element_text(size = 10)) +
+  facet_wrap(~ subj, ncol = 15)
+
+rt_bysubj_box
+
+```
+
+Subjects 68, 73, 146, 165, 221 have pretty big variance in their data, so keep that in mind. 
+
+
+We also remove subject 199, who has very weird RTs, probably due to him stopping/resuming the experiment at various points of the sentences, multiple times (half of his experimental items have insanely long RTs at various ROIs)
+
+```{r}
+
+dat <- dat |> 
+  filter(subj != 199)
+
+```
+
+
 Let's proceed with a Frequentist analysis, and then the Bayesian version. 
-
-
 
 ### Frequentist LMEMs
 
@@ -552,6 +671,69 @@ mv_freq_null <- lmer(log(rt) ~ 1 +
 anova(mv_freq_vi, mv_freq_null)
 
 ```
+
+From a frequentist point of view, there is significant evidence in favor of our hypothesis (higher RTs in the sing condition at the Matrix Verb)
+
+
+
+**Have a look at the residuals** 
+
+```{r}
+
+car::qqPlot(residuals(mv_freq_vi)) 
+
+```
+
+
+```{r}
+
+# Add a constant to the residuals to make them all positive
+residuals_pos <- residuals(mv_freq_vi) - min(residuals(mv_freq_vi)) + 1
+
+# Create a lm object with the adjusted residuals
+residuals_lm <- lm(residuals_pos ~ 1)
+
+# Apply the Box-Cox transformation
+boxcox(residuals_lm)
+
+
+# Alternatively, fit a simple lm
+
+m <- lm(rt ~ singplur, mv)
+
+boxcox(m)
+
+# Apply the power transformation to the response variable
+mv$rt_transf <- mv$rt^-0.6
+
+# Now, fit a linear model using the transformed response variable
+m_transf <- lm(rt_transf ~ singplur, mv)
+
+# Plot residuals
+
+car::qqPlot(residuals(m_transf)) 
+
+# You can then use boxcox() to confirm the transformation
+bc_transf <- boxcox(m_transf)
+
+boxcox(m_transf)
+
+
+# See what happens with a lmem using this data 
+
+mv_transformed <- lmer(rt_transf ~ 1 + singplur + 
+                     (1 | subj) + 
+                     (1 | item), 
+                   data = mv
+                   )
+
+summary(mv_freq_vi)
+
+
+```
+
+Using this custom transform slightly improved the normality of the residuals, but there is no transform that will make them perfect at this point. Considering this and also the fact that nothing changes in terms of significance of the fixed effect of interest, I will stick with the log-transform. 
+
 
 
 # Spillover region (critical +1)
