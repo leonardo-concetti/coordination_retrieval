@@ -337,6 +337,15 @@ dat <- dat |>
 ```
 
 
+We also remove subject 199, who has very weird RTs, probably due to him stopping/resuming the experiment at various points of the sentences, multiple times (half of his experimental items have insanely long RTs at various ROIs)
+
+```{r}
+
+dat <- dat |> 
+  filter(subj != 199)
+
+```
+
 
 Generate subsets for the single regions (if necessary):
 
@@ -521,7 +530,7 @@ Visualize RTs by condition for each participant
 
 ```{r, fig.height=25, fig.width=25}
 
-rt_bysubj <- ggplot(
+rt_bysubj_scatter <- ggplot(
   mv,
   aes(y = log(rt), x = condition)
   ) +
@@ -529,11 +538,11 @@ rt_bysubj <- ggplot(
   theme(plot.title = element_text(size = 10), axis.title = element_text(size = 10)) +
   facet_wrap(~ subj, ncol = 15)
 
-rt_bysubj
+rt_bysubj_scatter
 
 ggsave(
   filename = "scatterplot_of_RTs_by_condition_for_each_subject.png",
-  plot = rt_bysubj + theme_minimal() + theme(plot.background = element_rect(fill = "white")),
+  plot = rt_bysubj_scatter + theme_minimal() + theme(plot.background = element_rect(fill = "white")),
   dpi = 300,
   width = 25,  
   height = 25
@@ -544,46 +553,7 @@ ggsave(
 ```
 
 
-
-*This currently does not work as intended (I want a horizontal line showing the difference between conditions means, on top of the scatterplots)*
-
-```{r, fig.height=25, fig.width=25}
-
-# Calculate the mean RT for each subject and condition separately
-mean_rt <- mv |> 
-  group_by(subj, condition) |>
-  summarise(mean_rt = mean(rt)) |>
-  pivot_wider(names_from = condition, values_from = mean_rt)
-
-# Calculate the difference in means between conditions
-mean_diff <- mean_rt |>
-  mutate(diff = `sing` - `plur`) |>
-  select(subj, diff)
-
-
-# Create the plot
-rt_bysubj <- ggplot(
-  mv,
-  aes(y = log(rt), x = condition)
-  ) +
-  geom_jitter(alpha = 0.7) + 
-  theme(plot.title = element_text(size = 10), axis.title = element_text(size = 10)) +
-  facet_wrap(~ subj, ncol = 15)
-
-# Add lines for the mean difference between conditions
-rt_bysubj <- rt_bysubj +
-  geom_segment(data = mean_rt, aes(x = 1, xend = 2, y = sing, yend = plur), color = "red")
-
-
-rt_bysubj
-
-
-
-
-
-```
-
-
+Individual boxplots
 
 ```{r, fig.height=25, fig.width=25}
 
@@ -597,19 +567,255 @@ rt_bysubj_box <- ggplot(
 
 rt_bysubj_box
 
+ggsave(
+  filename = "boxplot_of_RTs_by_condition_for_each_subject.png",
+  plot = rt_bysubj_box + theme_minimal() + theme(plot.background = element_rect(fill = "white")),
+  dpi = 300,
+  width = 25,  
+  height = 25
+  )
+
+
 ```
 
-Subjects 68, 73, 146, 165, 221 have pretty big variance in their data, so keep that in mind. 
 
 
-We also remove subject 199, who has very weird RTs, probably due to him stopping/resuming the experiment at various points of the sentences, multiple times (half of his experimental items have insanely long RTs at various ROIs)
+
+
+Take a look at individual differences in the effect in no-pooling vs hierarchical models (the no-pooling model is theoretically nonsensical here, it's just to see the difference in shrinkage)
+
+No-pooling model
 
 ```{r}
 
-dat <- dat |> 
-  filter(subj != 199)
+fit_np <- brm(rt ~ 0 + factor(subj) + singplur:factor(subj),
+              family = lognormal(),
+              prior = c(
+                prior(normal(0, 1), class = b),
+                prior(normal(0, 1), class = sigma)),
+              data = mv
+              )
+
+
+# parameter name of beta by subject:
+
+ind_effects_np <- paste0("b_factorsubj",
+                      unique(mv$subj), ":singplur")
+
+
+beta_across_subj <- as.data.frame(fit_np) |> 
+#removes the meta data from the object
+  select(all_of(ind_effects_np)) |> 
+  rowMeans()
+
+
+# Calculate the average of these estimates
+grand_av_beta <- tibble(mean = mean(beta_across_subj),
+                         lq = quantile(beta_across_subj, c(0.025)),
+                         hq = quantile(beta_across_subj, c(0.975)))
+
+
+# make a table of beta's by subject
+
+beta_by_subj <- posterior_summary(fit_np,
+                                  variable = ind_effects_np) |> 
+  as.data.frame() |> 
+  mutate(subject = 1:n()) |> 
+## reorder plot by magnitude of mean:
+  arrange(Estimate) |> 
+  mutate(subject = factor(subject, levels = subject))
+
+ggplot(beta_by_subj,
+       aes(x = Estimate, xmin = Q2.5, xmax = Q97.5, y = subject)) +
+  geom_point() +
+  geom_errorbarh() +
+  geom_vline(xintercept = grand_av_beta$mean) +
+  geom_vline(xintercept = grand_av_beta$lq, linetype = "dashed") +
+  geom_vline(xintercept = grand_av_beta$hq, linetype = "dashed") +
+  xlab("By-subject effect of number marking on the Relative Clause verb, in log(ms)")
 
 ```
+
+
+
+
+
+```{r, fig.height=25, fig.width=20}
+
+fit_mv_small_indv <- brm(rt ~ singplur +
+                           (singplur | subj) +
+                           (singplur | item),
+                         family = lognormal(),
+                         prior = c(
+                           prior(normal(6.5, 0.8), class = Intercept),
+                           prior(normal(0, 0.02), class = b, coef = singplur),
+                           prior(normal(0, 1), class = sigma),
+                           prior(normal(0, 1), class = sd),
+                           prior(lkj(2), class = cor)),
+                         data = mv
+                         )
+
+
+
+# make a table of u_2s
+
+ind_effects_indv <- paste0("r_subj[", unique(mv$subj),
+",singplur]")
+
+u_2_indv <- posterior_summary(fit_mv_small_indv, variable = ind_effects_indv) |> 
+  as_tibble() |> 
+  mutate(subj = 1:n()) |> 
+  ## reorder plot by magnitude of mean:
+  arrange(Estimate) |> 
+  mutate(subj = factor(subj, levels = subj))
+
+# We plot:
+
+ggplot(u_2_indv,
+       aes(x = Estimate, xmin = Q2.5, xmax = Q97.5, y = subj)) +
+  geom_point() +
+  geom_errorbarh() +
+  xlab("By-subject adjustment to the slope in log(ms)")
+
+```
+
+Compare the no-pooling with the hierarchical model individual estimates
+
+```{r, fig.height=25, fig.width=20}
+
+# Extract parameter estimates from the no pooling model:
+par_np <- posterior_summary(fit_np, variable = ind_effects_np) |> 
+  as_tibble() |> 
+  mutate(model = "No pooling",
+         subj = unique(mv$subj))
+
+# For the hierarchical model, the code is more complicated
+# because we want the effect (beta) + adjustment.
+
+# Extract the overall group level effect:
+beta <- c(as_draws_df(fit_mv_small_indv)$b_singplur)
+
+# Extract the individual adjustments:
+ind_effects_indv <- paste0("r_subj[", unique(mv$subj), ",singplur]")
+
+adjustment <- as_draws_matrix(fit_mv_small_indv, variable = ind_effects_indv)
+
+# Get the by subject effects in a data frame where each adjustment is in each column.
+
+# Remove all the draws meta data by using as.data.frame
+by_subj_effect <- as.data.frame(beta + adjustment)
+
+# Summarize them by getting a table with the mean and the quantiles for each column and then binding them.
+par_h <- lapply(by_subj_effect, function(x) {
+  tibble(Estimate = mean(x),
+         Q2.5 = quantile(x, .025),
+         Q97.5 = quantile(x, .975))}) |> 
+  bind_rows() |> 
+  # Add a column to identify the model, and one with the subject labels:
+  mutate(model = "Hierarchical",
+         subj = unique(mv$subj))
+
+# The mean and 95% CI of both models in one data frame:
+by_subj_df <- bind_rows(par_h, par_np) |> 
+  arrange(Estimate) |> 
+  mutate(subj = factor(subj, levels = unique(.data$subj)))
+
+b_singplur <- posterior_summary(fit_mv_small_indv, variable = "b_singplur")
+
+ggplot(by_subj_df,
+       aes(ymin = Q2.5, ymax = Q97.5, x = subj,
+           y = Estimate, color = model, shape = model)) +
+  geom_errorbar(position = position_dodge(1)) +
+  geom_point(position = position_dodge(1)) +
+  # We'll also add the mean and 95% CrI of the overall difference to the plot:
+  geom_hline(yintercept = b_singplur[, "Estimate"]) +
+  geom_hline(yintercept = b_singplur[, "Q2.5"],
+             linetype = "dotted", linewidth = .5) +
+  geom_hline(yintercept = b_singplur[, "Q97.5"],
+             linetype = "dotted", linewidth = .5) +
+  xlab("subj") +
+  ylab("Effect of RCV number marking on MV RTs") +
+  coord_flip()
+
+```
+
+
+Look at the hierarchical model individual estimates by themselves 
+
+```{r, fig.height=25, fig.width=20}
+
+# Extract the overall group level effect:
+beta <- c(as_draws_df(fit_mv_small_indv)$b_singplur)
+
+# Extract the individual adjustments:
+ind_effects_indv <- paste0("r_subj[", unique(mv$subj), ",singplur]")
+
+adjustment <- as_draws_matrix(fit_mv_small_indv, variable = ind_effects_indv)
+
+# Get the by subject effects in a data frame where each adjustment is in each column.
+
+# Remove all the draws meta data by using as.data.frame
+by_subj_effect <- as.data.frame(beta + adjustment)
+
+# Summarize them by getting a table with the mean and the quantiles for each column and then binding them.
+par_h <- lapply(by_subj_effect, function(x) {
+  tibble(Estimate = mean(x),
+         Q2.5 = quantile(x, .025),
+         Q97.5 = quantile(x, .975))}) |> 
+  bind_rows() |> 
+  # Add a column to identify the model, and one with the subject labels:
+  mutate(model = "Hierarchical",
+         subj = unique(mv$subj))
+
+# The mean and 95% CI in a data frame:
+by_subj_df <- par_h |> 
+  arrange(Estimate) |> 
+  mutate(subj = factor(subj, levels = unique(.data$subj)))
+
+b_singplur <- posterior_summary(fit_mv_small_indv, variable = "b_singplur")
+
+effect_by_subj <- ggplot(by_subj_df,
+                         aes(ymin = Q2.5, ymax = Q97.5,
+                             x = subj, y = Estimate)) +
+  geom_errorbar(position = position_dodge(1)) +
+  geom_point(position = position_dodge(1)) +
+  # We'll also add the mean and 95% CrI of the overall difference to the plot:
+  geom_hline(yintercept = b_singplur[, "Estimate"],
+             linewidth = 0.8, color = "blue") +
+  geom_hline(yintercept = b_singplur[, "Q2.5"],
+             linetype = "dashed", linewidth = 0.8, color = "blue")  +
+  geom_hline(yintercept = b_singplur[, "Q97.5"],
+             linetype = "dashed", linewidth = 0.8, color = "blue") +
+  geom_hline(yintercept = 0,
+             linewidth = 0.8, color = "red") +
+  xlab("subj") +
+  ylab("Effect of RCV number marking on MV RTs") +
+  coord_flip()
+
+
+ggsave(
+  filename = "Individual differences in the effect of interest.png",
+  plot = effect_by_subj + theme_minimal() + theme(plot.background = element_rect(fill = "white")),
+  dpi = 300,
+  width = 20,  
+  height = 25
+  )
+
+effect_by_subj
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 Let's proceed with a Frequentist analysis, and then the Bayesian version. 
@@ -732,7 +938,7 @@ summary(mv_freq_vi)
 
 ```
 
-Using this custom transform slightly improved the normality of the residuals, but there is no transform that will make them perfect at this point. Considering this and also the fact that nothing changes in terms of significance of the fixed effect of interest, I will stick with the log-transform. 
+Using this custom transform slightly improved the normality of the residuals, but there is no transform that will make them perfect at this point. Considering this and also the fact that nothing changes in terms of magnitude or significance of the fixed effect of interest, I will stick with the log-transform. 
 
 
 
@@ -948,25 +1154,25 @@ Agnostic and small - N(0, 0.02)
 
 ```{r}
 
-fit_mv_small_post <- brm(rt ~ singplur +
-                           (singplur | subj) +
-                           (singplur | item),
-                         family = lognormal(),
-                         prior = c(
-                           prior(normal(6.5, 0.8), class = Intercept),
-                           prior(normal(0, 0.02), class = b, coef = singplur),
-                           prior(normal(0, 1), class = sigma),
-                           prior(normal(0, 1), class = sd),
-                           prior(lkj(2), class = cor)),
-                         data = mv,
-                         iter = 20000,
-                         warmup = 2000,
-                         save_pars = save_pars(all = TRUE)
-                         )
+fit_mv_small <- brm(rt ~ singplur +
+                      (singplur | subj) +
+                      (singplur | item),
+                    family = lognormal(),
+                    prior = c(
+                      prior(normal(6.5, 0.8), class = Intercept),
+                      prior(normal(0, 0.02), class = b, coef = singplur),
+                      prior(normal(0, 1), class = sigma),
+                      prior(normal(0, 1), class = sd),
+                      prior(lkj(2), class = cor)),
+                    data = mv,
+                    iter = 20000,
+                    warmup = 2000,
+                    save_pars = save_pars(all = TRUE)
+                    )
 
-#plot(fit_mv_small_post)
+#plot(fit_mv_small)
 
-short_summary(fit_mv_small_post)
+short_summary(fit_mv_small)
 
 ```
 
@@ -975,25 +1181,25 @@ Agnostic and medium - N(0, 0.05)
 
 ```{r}
 
-fit_mv_med_post <- brm(rt ~ singplur +
-                         (singplur | subj) +
-                         (singplur | item),
-                       family = lognormal(),
-                       prior = c(
-                         prior(normal(6.5, 0.8), class = Intercept),
-                         prior(normal(0, 0.05), class = b, coef = singplur),
-                         prior(normal(0, 1), class = sigma),
-                         prior(normal(0, 1), class = sd),
-                         prior(lkj(2), class = cor)),
-                       data = mv,
-                       iter = 20000,
-                       warmup = 2000,
-                       save_pars = save_pars(all = TRUE)
-                       )
+fit_mv_med <- brm(rt ~ singplur +
+                    (singplur | subj) +
+                    (singplur | item),
+                  family = lognormal(),
+                  prior = c(
+                    prior(normal(6.5, 0.8), class = Intercept),
+                    prior(normal(0, 0.05), class = b, coef = singplur),
+                    prior(normal(0, 1), class = sigma),
+                    prior(normal(0, 1), class = sd),
+                    prior(lkj(2), class = cor)),
+                  data = mv,
+                  iter = 20000,
+                  warmup = 2000,
+                  save_pars = save_pars(all = TRUE)
+                  )
 
-#plot(fit_mv_med_post)
+#plot(fit_mv_med)
 
-short_summary(fit_mv_med_post)
+short_summary(fit_mv_med)
 
 ```
 
@@ -1002,52 +1208,52 @@ Agnostic and large - N(0, 1)
 
 ```{r}
 
-fit_mv_large_post <- brm(rt ~ singplur +
-                           (singplur | subj) +
-                           (singplur | item),
-                         family = lognormal(),
-                         prior = c(
-                           prior(normal(6.5, 0.8), class = Intercept),
-                           prior(normal(0, 1), class = b, coef = singplur),
-                           prior(normal(0, 1), class = sigma),
-                           prior(normal(0, 1), class = sd),
-                           prior(lkj(2), class = cor)),
-                         data = mv,
-                         iter = 20000,
-                         warmup = 2000,
-                         save_pars = save_pars(all = TRUE)
-                         )
+fit_mv_large <- brm(rt ~ singplur +
+                      (singplur | subj) +
+                      (singplur | item),
+                    family = lognormal(),
+                    prior = c(
+                      prior(normal(6.5, 0.8), class = Intercept),
+                      prior(normal(0, 1), class = b, coef = singplur),
+                      prior(normal(0, 1), class = sigma),
+                      prior(normal(0, 1), class = sd),
+                      prior(lkj(2), class = cor)),
+                    data = mv,
+                    iter = 20000,
+                    warmup = 2000,
+                    save_pars = save_pars(all = TRUE)
+                    )
 
-#plot(fit_mv_large_post)
+#plot(fit_mv_large)
 
-short_summary(fit_mv_large_post)
+short_summary(fit_mv_large)
 
 ```
 
 
-Positive and small - N(0.06, 0.02)
+Positive and small - N(0.02, 0.02)
 
 ```{r}
 
-fit_mv_enth_post <- brm(rt ~ singplur +
-                          (singplur | subj) +
-                          (singplur | item),
-                        family = lognormal(),
-                        prior = c(
-                          prior(normal(6.5, 0.8), class = Intercept),
-                          prior(normal(0.06, 0.02), class = b, coef = singplur),
-                          prior(normal(0, 1), class = sigma),
-                          prior(normal(0, 1), class = sd),
-                          prior(lkj(2), class = cor)),
-                        data = mv,
-                        iter = 20000,
-                        warmup = 2000,
-                        save_pars = save_pars(all = TRUE)
-                        )
+fit_mv_enth <- brm(rt ~ singplur +
+                     (singplur | subj) +
+                     (singplur | item),
+                   family = lognormal(),
+                   prior = c(
+                     prior(normal(6.5, 0.8), class = Intercept),
+                     prior(normal(0.02, 0.02), class = b, coef = singplur),
+                     prior(normal(0, 1), class = sigma),
+                     prior(normal(0, 1), class = sd),
+                     prior(lkj(2), class = cor)),
+                   data = mv,
+                   iter = 20000,
+                   warmup = 2000,
+                   save_pars = save_pars(all = TRUE)
+                   )
 
-#plot(fit_mv_enth_post)
+#plot(fit_mv_enth)
 
-short_summary(fit_mv_enth_post)
+short_summary(fit_mv_enth)
 
 ```
 
@@ -1056,28 +1262,35 @@ Look at the posteriors for the slope
 
 ```{r}
 
-ppd_mv_small_post <- mcmc_dens(fit_mv_small_post, pars = variables(fit_mv_small_post)[2]) + 
+ppd_mv_small <- mcmc_dens(fit_mv_small, pars = variables(fit_mv_small)[2]) + 
   ggtitle("Normal(0, 0.02)") +
   theme(plot.title = element_text(size = 10))
 
-ppd_mv_med_post <- mcmc_dens(fit_mv_med_post, pars = variables(fit_mv_med_post)[2]) + 
+ppd_mv_med <- mcmc_dens(fit_mv_med, pars = variables(fit_mv_med)[2]) + 
   ggtitle("Normal(0, 0.05)") +
   theme(plot.title = element_text(size = 10))
 
-ppd_mv_large_post <- mcmc_dens(fit_mv_large_post, pars = variables(fit_mv_large_post)[2]) + 
+ppd_mv_large <- mcmc_dens(fit_mv_large, pars = variables(fit_mv_large)[2]) + 
   ggtitle("Normal(0, 1)") +
   theme(plot.title = element_text(size = 10))
 
-ppd_mv_enth_post <- mcmc_dens(fit_mv_enth_post, pars = variables(fit_mv_enth_post)[2]) + 
-  ggtitle("Normal(0.06, 0.02)") +
+ppd_mv_enth <- mcmc_dens(fit_mv_enth, pars = variables(fit_mv_enth)[2]) + 
+  ggtitle("Normal(0.02, 0.02)") +
   theme(plot.title = element_text(size = 10))
 
-mv_post_dist <- (ppd_mv_small_post + ppd_mv_med_post) /
-  (ppd_mv_large_post + ppd_mv_enth_post)
+mv_post_dist <- (ppd_mv_small + ppd_mv_med) /
+  (ppd_mv_large + ppd_mv_enth)
 
 mv_post_dist
 
-ggsave("mv_post_dist.png", mv_post_dist, width = 6, height = 4, dpi = 300)
+
+ggsave(
+  filename = "mv_post_dist.png",
+  plot = mv_post_dist + theme_minimal() + theme(plot.background = element_rect(fill = "white")),
+  dpi = 300,
+  width = 6,  
+  height = 4
+  )
 
 ```
 
@@ -1088,25 +1301,25 @@ Extract draws for Intercept and Slope posteriors, and compute the median differe
 
 ```{r, results='hide', message=FALSE, warning=FALSE}
 
-med_diff_small <- as_draws_df(fit_mv_small_post)[c("b_singplur", "b_Intercept")] |> 
+med_diff_small <- as_draws_df(fit_mv_small)[c("b_singplur", "b_Intercept")] |> 
   mutate(
     med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
   ) |> 
   select(med_diff)
 
-med_diff_med <- as_draws_df(fit_mv_med_post)[c("b_singplur", "b_Intercept")] |> 
+med_diff_med <- as_draws_df(fit_mv_med)[c("b_singplur", "b_Intercept")] |> 
   mutate(
     med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
   ) |> 
   select(med_diff)
 
-med_diff_large <- as_draws_df(fit_mv_large_post)[c("b_singplur", "b_Intercept")] |> 
+med_diff_large <- as_draws_df(fit_mv_large)[c("b_singplur", "b_Intercept")] |> 
   mutate(
     med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
   ) |> 
   select(med_diff)
 
-med_diff_enth <- as_draws_df(fit_mv_enth_post)[c("b_singplur", "b_Intercept")] |> 
+med_diff_enth <- as_draws_df(fit_mv_enth)[c("b_singplur", "b_Intercept")] |> 
   mutate(
     med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
   ) |> 
@@ -1129,7 +1342,7 @@ combined_med_diff_beta <- data.frame(med_diff_small,
 
 
 summ_med_diff <- data.frame(
-  Prior = c("Normal(0, 0.02)", "Normal(0, 0.05)", "Normal(0, 1)", "Normal(0.06, 0.02)"),
+  Prior = c("Normal(0, 0.02)", "Normal(0, 0.05)", "Normal(0, 1)", "Normal(0.02, 0.02)"),
   'Mean diff (ms)' = round(apply(combined_med_diff_beta, 2, mean), 3),
   Q2.5 = round(apply(combined_med_diff_beta, 2, function(x) quantile(x, 0.025)), 3),
   Q97.5 = round(apply(combined_med_diff_beta, 2, function(x) quantile(x, 0.975)), 3),
@@ -1189,7 +1402,7 @@ Agnostic and small - N(0, 0.02)
 
 ```{r}
 
-bayes_factor(fit_mv_small_post, fit_mv_null)
+bayes_factor(fit_mv_small, fit_mv_null)
 
 ```
 
@@ -1197,7 +1410,7 @@ Agnostic and medium - N(0, 0.05)
 
 ```{r}
 
-bayes_factor(fit_mv_med_post, fit_mv_null)
+bayes_factor(fit_mv_med, fit_mv_null)
 
 ```
 
@@ -1206,23 +1419,24 @@ Agnostic and large - N(0, 1)
 
 ```{r}
 
-bayes_factor(fit_mv_large_post, fit_mv_null)
+bayes_factor(fit_mv_large, fit_mv_null)
 
 ```
 
 
-Positive and small - N(0.06, 0.02)
+Positive and small - N(0.02, 0.02)
 
 ```{r}
 
-bayes_factor(fit_mv_enth_post, fit_mv_null)
+bayes_factor(fit_mv_enth, fit_mv_null)
 
 ```
 
+Agnostic small vs Positive small
 
 ```{r}
 
-bayes_factor(fit_mv_small_post, fit_mv_enth_post)
+bayes_factor(fit_mv_small, fit_mv_enth)
 
 ```
 
@@ -1241,25 +1455,25 @@ Agnostic and small - N(0, 0.02)
 
 ```{r}
 
-fit_rcv_small_post <- brm(rt ~ singplur +
-                           (singplur | subj) +
-                           (singplur | item),
-                         family = lognormal(),
-                         prior = c(
-                           prior(normal(6.5, 0.8), class = Intercept),
-                           prior(normal(0, 0.02), class = b, coef = singplur),
-                           prior(normal(0, 1), class = sigma),
-                           prior(normal(0, 1), class = sd),
-                           prior(lkj(2), class = cor)),
-                         data = rcv,
-                         #iter = 20000,
-                         #warmup = 2000,
-                         #save_pars = save_pars(all = TRUE)
-                         )
+fit_rcv_small <- brm(rt ~ singplur +
+                       (singplur | subj) +
+                       (singplur | item),
+                     family = lognormal(),
+                     prior = c(
+                       prior(normal(6.5, 0.8), class = Intercept),
+                       prior(normal(0, 0.02), class = b, coef = singplur),
+                       prior(normal(0, 1), class = sigma),
+                       prior(normal(0, 1), class = sd),
+                       prior(lkj(2), class = cor)),
+                     data = rcv,
+                     iter = 20000,
+                     warmup = 2000,
+                     save_pars = save_pars(all = TRUE)
+                     )
 
-#plot(fit_rcv_small_post)
+#plot(fit_rcv_small)
 
-short_summary(fit_rcv_small_post)
+short_summary(fit_rcv_small)
 
 ```
 
@@ -1268,25 +1482,25 @@ Agnostic and medium - N(0, 0.05)
 
 ```{r}
 
-fit_rcv_med_post <- brm(rt ~ singplur +
-                         (singplur | subj) +
-                         (singplur | item),
-                       family = lognormal(),
-                       prior = c(
-                         prior(normal(6.5, 0.8), class = Intercept),
-                         prior(normal(0, 0.05), class = b, coef = singplur),
-                         prior(normal(0, 1), class = sigma),
-                         prior(normal(0, 1), class = sd),
-                         prior(lkj(2), class = cor)),
-                       data = rcv,
-                       #iter = 20000,
-                       #warmup = 2000,
-                       #save_pars = save_pars(all = TRUE)
-                       )
+fit_rcv_med <- brm(rt ~ singplur +
+                     (singplur | subj) +
+                     (singplur | item),
+                   family = lognormal(),
+                   prior = c(
+                     prior(normal(6.5, 0.8), class = Intercept),
+                     prior(normal(0, 0.05), class = b, coef = singplur),
+                     prior(normal(0, 1), class = sigma),
+                     prior(normal(0, 1), class = sd),
+                     prior(lkj(2), class = cor)),
+                   data = rcv,
+                   iter = 20000,
+                   warmup = 2000,
+                   save_pars = save_pars(all = TRUE)
+                   )
 
-#plot(fit_rcv_med_post)
+#plot(fit_rcv_med)
 
-short_summary(fit_rcv_med_post)
+short_summary(fit_rcv_med)
 
 ```
 
@@ -1295,69 +1509,100 @@ Agnostic and large - N(0, 1)
 
 ```{r}
 
-fit_rcv_large_post <- brm(rt ~ singplur +
-                           (singplur | subj) +
-                           (singplur | item),
-                         family = lognormal(),
-                         prior = c(
-                           prior(normal(6.5, 0.8), class = Intercept),
-                           prior(normal(0, 1), class = b, coef = singplur),
-                           prior(normal(0, 1), class = sigma),
-                           prior(normal(0, 1), class = sd),
-                           prior(lkj(2), class = cor)),
-                         data = rcv,
-                         #iter = 20000,
-                         #warmup = 2000,
-                         #save_pars = save_pars(all = TRUE)
-                         )
+fit_rcv_large <- brm(rt ~ singplur +
+                       (singplur | subj) +
+                       (singplur | item),
+                     family = lognormal(),
+                     prior = c(
+                       prior(normal(6.5, 0.8), class = Intercept),
+                       prior(normal(0, 1), class = b, coef = singplur),
+                       prior(normal(0, 1), class = sigma),
+                       prior(normal(0, 1), class = sd),
+                       prior(lkj(2), class = cor)),
+                     data = rcv,
+                     iter = 20000,
+                     warmup = 2000,
+                     save_pars = save_pars(all = TRUE)
+                     )
 
-#plot(fit_rcv_large_post)
+#plot(fit_rcv_large)
 
-short_summary(fit_rcv_large_post)
+short_summary(fit_rcv_large)
 
 ```
 
 
-Positive and small - N(0.06, 0.02)
+
+Negative and medium (because of word length) (-0.04, 0.05)
+
 
 ```{r}
 
-fit_rcv_enth_post <- brm(rt ~ singplur +
-                          (singplur | subj) +
-                          (singplur | item),
-                        family = lognormal(),
-                        prior = c(
-                          prior(normal(6.5, 0.8), class = Intercept),
-                          prior(normal(0.06, 0.02), class = b, coef = singplur),
-                          prior(normal(0, 1), class = sigma),
-                          prior(normal(0, 1), class = sd),
-                          prior(lkj(2), class = cor)),
-                        data = rcv,
-                        #iter = 20000,
-                        #warmup = 2000,
-                        #save_pars = save_pars(all = TRUE)
-                        )
-
-#plot(fit_rcv_enth_post)
-
-short_summary(fit_rcv_enth_post)
+fit_rcv_neg <- brm(rt ~ singplur +
+                     (singplur | subj) +
+                     (singplur | item),
+                   family = lognormal(),
+                   prior = c(
+                     prior(normal(6.5, 0.8), class = Intercept),
+                     prior(normal(-0.04, 0.05), class = b, coef = singplur),
+                     prior(normal(0, 1), class = sigma),
+                     prior(normal(0, 1), class = sd),
+                     prior(lkj(2), class = cor)),
+                   data = rcv,
+                   iter = 20000,
+                   warmup = 2000,
+                   save_pars = save_pars(all = TRUE)
+                   )
 
 ```
+
+
+
+
+
+Model with word length difference as a predictor 
+
+```{r}
+
+rcv_word <- dat |> 
+  mutate(aux_lenght = ifelse(condition == "plur", 5, 2))
+
+fit_rcv_word <- brm(rt ~ singplur + wordl +
+                      (singplur + wordl | subj) +
+                      (singplur + wordl | item),
+                    family = lognormal(),
+                    prior = c(
+                      prior(normal(6.5, 0.8), class = Intercept),
+                      prior(normal(0, 0.05), class = b, coef = singplur),
+                      prior(normal(0, 0.05), class = b, coef = wordl),
+                      prior(normal(0, 1), class = sigma),
+                      prior(normal(0, 1), class = sd),
+                      prior(lkj(2), class = cor)),
+                    data = rcv_word,
+                    iter = 20000,
+                    warmup = 2000,
+                    save_pars = save_pars(all = TRUE)
+                    )
+
+```
+
+
+
 
 
 Look at the posteriors for the slope
 
 ```{r}
 
-ppd_rcv_small_post <- mcmc_dens(fit_rcv_small_post, pars = variables(fit_rcv_small_post)[2]) + 
+ppd_rcv_small <- mcmc_dens(fit_rcv_small, pars = variables(fit_rcv_small)[2]) + 
   ggtitle("Normal(0, 0.02)") +
   theme(plot.title = element_text(size = 10))
 
-ppd_rcv_med_post <- mcmc_dens(fit_rcv_med_post, pars = variables(fit_rcv_med_post)[2]) + 
+ppd_rcv_med <- mcmc_dens(fit_rcv_med, pars = variables(fit_rcv_med)[2]) + 
   ggtitle("Normal(0, 0.05)") +
   theme(plot.title = element_text(size = 10))
 
-ppd_rcv_large_post <- mcmc_dens(fit_rcv_large_post, pars = variables(fit_rcv_large_post)[2]) + 
+ppd_rcv_large <- mcmc_dens(fit_rcv_large, pars = variables(fit_rcv_large)[2]) + 
   ggtitle("Normal(0, 1)") +
   theme(plot.title = element_text(size = 10))
 
