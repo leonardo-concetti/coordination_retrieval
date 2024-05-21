@@ -478,7 +478,7 @@ dens_dat
 ```
 
 
-Take a look at the RTs by condition, with a boxplot
+Take a look at the raw RT means by condition (boxplot)
 
 ```{r}
 
@@ -495,7 +495,7 @@ box_mv <- ggplot(
 box_mv
 
 ```
-
+Note the big skew in the distribution, as expected in reading times.
 
 Look at the log-transformed version
 
@@ -515,7 +515,9 @@ box_logmv
 
 ```
 
-Look at the numbers
+
+
+Look at the raw summary numbers
 
 ```{r}
 
@@ -527,7 +529,7 @@ mv |>
 
 ```
 
-Numerically, there is no difference between the accuracy in the two conditions, but there is a difference between the mean RTs at the Matrix Verb. 
+Numerically, there is no difference between the accuracy in the two conditions, but there is a difference in mean RTs at the Matrix Verb. 
 
 **Additional visual checks**
 
@@ -585,13 +587,11 @@ ggsave(
 
 
 
-
-
 Take a look at individual differences in the effect in no-pooling vs hierarchical models (the no-pooling model is theoretically nonsensical here, it's just to see the difference in shrinkage)
 
 No-pooling model
 
-```{r}
+```{r,fig.height=25, fig.width=20}
 
 fit_np <- brm(rt ~ 0 + factor(subj) + singplur:factor(subj),
               family = lognormal(),
@@ -809,16 +809,6 @@ ggsave(
 effect_by_subj
 
 ```
-
-
-
-
-
-
-
-
-
-
 
 
 
