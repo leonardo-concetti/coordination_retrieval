@@ -933,7 +933,7 @@ summary(mv_freq_vi)
 
 ```
 
-Using this custom transform slightly improved the normality of the residuals, but there is no transform that will make them perfect at this point. Considering this and also the fact that nothing changes in terms of magnitude or significance of the fixed effect of interest, I will stick with the log-transform. 
+Using this custom transform slightly improved the normality of the residuals, but it seems that no transform will make them perfectly normal at this point. Considering this and also the fact that nothing changes in terms of magnitude or significance of the fixed effect of interest, I will stick with the log-transform. 
 
 
 
@@ -1092,7 +1092,7 @@ anova(rcv_spill_freq_vi, rcv_spill_freq_null)
 
 ```
 
-The effect seems to be reversed in the region following the RC verb (the RC object, for instance "l'intervista / the interview" in the example sentence above), which could signal that the RCV difference was indeed due to word length difference, with subsequent compensation in the following region?
+The effect seems to be reversed in the region following the RC verb (the RC object, for instance "l'intervista / the interview" in the example sentence above), which could signal that the RCV difference was indeed due to word length difference, with subsequent compensation in the following region.
 
 
 # RC onset (RC Verb -1, i.e., "che/that")
