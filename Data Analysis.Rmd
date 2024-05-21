@@ -9,6 +9,61 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
+This file contains the work-in-progress analysis of a self-paced reading experiment on the role of syntactic information in the retrieval of NP-Coordinated subjects.
+
+
+# Abstract
+
+The cue-based retrieval theory of sentence processing [3] assumes that linguistic items are encoded in Working Memory based on their featural content. Information such as syntactic category and grammatical number are encoded for each item and can then be used as cues for retrieval. Relevant questions in this respect are what exactly constitutes a single item and how detailed is the representation of hierarchical information in working memory.
+
+  Monosyndetic NP-coordination [5] provides a unique opportunity to investigate the issue. In contrast to early syntactic analyses of coordination, many current accounts [1, 2, 4, 5] propose an asymmetric structure headed by the conjoining element. The two conjuncts are either specifier and complement in a &P [1], or attached by adjunction [4]. This analysis has direct implications for retrieval: in sentences like “The boy and the girl that the teacher praised are smiling”, the set of cues that are specified upon encountering the matrix VP “are smiling” includes [subject] and [plural]. Neither cue is however found in any of the NPs encountered in the sentence, a fact that would lead to a problematic retrieval, if there was no &P entry in WM. Under a headed account of coordination, the subject “The boy and the girl” is treated as a unique syntactic item, allowing for the [subject] and [plural] features to be encoded in WM and used as cues for retrieval, without the need for additional mechanisms.
+  
+  A two condition self-paced reading experiment was designed to test the hypothesis that the WM representation of a &P is distinct from the ones associated with the single NPs embedded in it. The experiment will be carried out in Italian, a language with obligatory number agreement, which also allows for the manipulation of Relative Clause attachment. The number marking on the relative clause verb allows to force a different RC attachment in the two conditions: in one case [1a] the whole &P is modified by the RC, while in the other case [1b] only the second conjunct is modified. As a consequence, activation of the &P is predicted to be boosted in [1a], while in [1b] it is the second-conjunct NP that receives the boost due to reactivation. In line with this hypothesis, longer reading times are expected at the matrix verb in [1b] compared to [1a].
+  
+  Sentences are presented on the screen one at a time. Every sentence is followed by a yes/no comprehension to ensure active participation.
+
+  Data from a large sample of native speakers of Italian will be collected through Prolific (https://www.prolific.com), and analysed with Bayesian hierarchical models as well as Bayes Factor analyses. The main region of interest is the matrix verb, with additional analyses planned for the spillover region(s), as well as the RC verb.  
+
+
+References
+[1] Johannessen, J. B. (1998). Coordination. Oxford University Press.
+[2] Kayne, R. S. (1994). The antisymmetry of syntax (Vol. 25). MIT press.
+[3] Lewis, R. L., & Vasishth, S. (2005). An Activation-Based Model of Sentence Processing as Skilled Memory Retrieval. Cognitive Science, 29, 375-419.
+[4] Munn, A. B. (1993). Topics in the syntax and semantics of coordinate structures. University of Maryland, College Park.
+[5] Zwart, J. W. (2005). Some notes on coordination in head-final languages. Linguistics in the Netherlands, 22(1), 231-242.
+
+
+
+Item example:
+
+1.
+
+a) L'assistente | e | il presidente | che | hanno sostenuto | l'intervista | con | i giornalisti | del quotidiano | *tornano* | 
+
+velocemente | in ufficio.
+
+  The assistant | and | the president | that | have(PL) done | the interview | with | the journalists | of the newspaper |
+
+  *go_back(PL)* | quickly | to the office.
+
+
+b) L'assistente | e | il presidente | che | ha sostenuto | l'intervista | con | i giornalisti | del quotidiano | *tornano* | 
+
+velocemente | in ufficio.
+
+  The assistant | and | the president | that | has(SG) done | the interview | with | the journalists | of the newspaper |
+
+  *go_back(PL)* | quickly | to the office.  
+
+
+H1: Detailed hierarchical information enter the WM representations of each item. &P is encoded in addition to the two DPs it is composed of, and is the correct target for retrieval. A slowdown is expected on the matrix verb (the critical point of retrieval) in condition 1b with respect to 1a.
+
+H0: Detailed hierarchical information are not encoded in the WM entry of each items. There is no &P entry in Working Memory and can thus not be the target for retrieval. No difference in Reading Times is expected on the main verb in the two conditions. 
+
+
+
+
 Load packages and set options
 
 ```{r Packages, include=FALSE, results='hide'}
@@ -135,55 +190,6 @@ short_summary <- function (x, digits = 2, ...)
 }
 
 ```
-
-
-# Abstract
-
-The cue-based retrieval theory of sentence processing [3] assumes that linguistic items are encoded in Working Memory based on their featural content. Information such as syntactic category and grammatical number are encoded for each item and can then be used as cues for retrieval. Relevant questions in this respect are what exactly constitutes a single item and how detailed is the representation of hierarchical information in working memory.
-
-  Monosyndetic NP-coordination [5] provides a unique opportunity to investigate the issue. In contrast to early syntactic analyses of coordination, many current accounts [1, 2, 4, 5] propose an asymmetric structure headed by the conjoining element. The two conjuncts are either specifier and complement in a &P [1], or attached by adjunction [4]. This analysis has direct implications for retrieval: in sentences like “The boy and the girl that the teacher praised are smiling”, the set of cues that are specified upon encountering the matrix VP “are smiling” includes [subject] and [plural]. Neither cue is however found in any of the NPs encountered in the sentence, a fact that would lead to a problematic retrieval, if there was no &P entry in WM. Under a headed account of coordination, the subject “The boy and the girl” is treated as a unique syntactic item, allowing for the [subject] and [plural] features to be encoded in WM and used as cues for retrieval, without the need for additional mechanisms.
-  
-  A two condition self-paced reading experiment was designed to test the hypothesis that the WM representation of a &P is distinct from the ones associated with the single NPs embedded in it. The experiment will be carried out in Italian, a language with obligatory number agreement, which also allows for the manipulation of Relative Clause attachment. The number marking on the relative clause verb allows to force a different RC attachment in the two conditions: in one case [1a] the whole &P is modified by the RC, while in the other case [1b] only the second conjunct is modified. As a consequence, activation of the &P is predicted to be boosted in [1a], while in [1b] it is the second-conjunct NP that receives the boost due to reactivation. In line with this hypothesis, longer reading times are expected at the matrix verb in [1b] compared to [1a].
-  
-  Sentences are presented on the screen one at a time. Every sentence is followed by a yes/no comprehension to ensure active participation.
-
-  Data from a large sample of native speakers of Italian will be collected through Prolific (https://www.prolific.com), and analysed with Bayesian hierarchical models as well as Bayes Factor analyses. The main region of interest is the matrix verb, with additional analyses planned for the spillover region(s), as well as the RC verb.  
-
-
-References
-[1] Johannessen, J. B. (1998). Coordination. Oxford University Press.
-[2] Kayne, R. S. (1994). The antisymmetry of syntax (Vol. 25). MIT press.
-[3] Lewis, R. L., & Vasishth, S. (2005). An Activation-Based Model of Sentence Processing as Skilled Memory Retrieval. Cognitive Science, 29, 375-419.
-[4] Munn, A. B. (1993). Topics in the syntax and semantics of coordinate structures. University of Maryland, College Park.
-[5] Zwart, J. W. (2005). Some notes on coordination in head-final languages. Linguistics in the Netherlands, 22(1), 231-242.
-
-
-
-Item example:
-
-1.
-
-a) L'assistente | e | il presidente | che | hanno sostenuto | l'intervista | con | i giornalisti | del quotidiano | *tornano* | 
-
-velocemente | in ufficio.
-
-  The assistant | and | the president | that | have(PL) done | the interview | with | the journalists | of the newspaper |
-
-  *go_back(PL)* | quickly | to the office.
-
-
-b) L'assistente | e | il presidente | che | ha sostenuto | l'intervista | con | i giornalisti | del quotidiano | *tornano* | 
-
-velocemente | in ufficio.
-
-  The assistant | and | the president | that | has(SG) done | the interview | with | the journalists | of the newspaper |
-
-  *go_back(PL)* | quickly | to the office.  
-
-
-H1: Detailed hierarchical information enter the WM representations of each item. &P is encoded in addition to the two DPs it is composed of, and is the correct target for retrieval. A slowdown is expected on the matrix verb (the critical point of retrieval) in condition 1b with respect to 1a.
-
-H0: Detailed hierarchical information are not encoded in the WM entry of each items. There is no &P entry in Working Memory and can thus not be the target for retrieval. No difference in Reading Times is expected on the main verb in the two conditions. 
 
 
 
