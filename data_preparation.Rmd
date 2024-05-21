@@ -5,6 +5,10 @@ date: "`r Sys.Date()`"
 output: pdf_document
 ---
 
+
+This file contains all the pre-processing of the raw dataset from the self-paced reading experiment on retrieval of NP-coordinated subjects. 
+
+
 ```{r Packages, include=FALSE, results='hide'}
 
 library(tidyverse)
