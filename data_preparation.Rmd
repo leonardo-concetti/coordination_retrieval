@@ -427,7 +427,47 @@ dat |>
 
 ```
 
+Add a column containing the word length of each region of interest 
 
+```{r}
+
+dat <- dat |> 
+  mutate(wl = nchar(roi_value))
+
+```
+
+
+Rename a couple of columns
+
+```{r}
+
+dat <- dat |> 
+  rename(answer_expected = answer, answer_selected = selection)
+
+```
+
+
+Arrange the columns in the desired order
+
+```{r}
+
+dat <- dat |> 
+  select(subj, list, trial, item, condition, roi_number, roi_value, wl, rt, sentence, 
+         question, question_type, answer_expected, answer_selected, correct)  #remember to add here any other column that you did not remove from the data frame
+
+```
+
+
+### Save the clean dataset 
+
+```{r}
+
+write_csv(dat, r"[C:\Users\lconc\OneDrive - student.unisi.it\PhD - DISPOC\Projects\2 - Year 2\coordination_retrieval\coord_spr_tot.csv]")
+
+```
+
+
+# Dataset without the fillers 
 
 Get rid of the filler trials (only do this after having checked everything is ok, including accuracy of participants etc and having decided if/what subjects to exclude)
 
@@ -467,22 +507,13 @@ dat |>
 It's expected that it does not result in a perfect 50-50 balance, as we cannot control which subjects leave the task before its end, which ones get timed-out etc. But it's still pretty balanced, so nothing to worry about. 
 
 
-Rename a couple of columns
-
-```{r}
-
-dat <- dat |> 
-  rename(answer_expected = answer, answer_selected = selection)
-
-```
-
 
 Arrange the columns in the desired order
 
 ```{r}
 
 dat <- dat |> 
-  select(subj, list, trial, trial_exp, item, condition, roi_number, roi_value, rt, sentence, 
+  select(subj, list, trial, trial_exp, item, condition, roi_number, roi_value, wl, rt, sentence, 
          question, question_type, answer_expected, answer_selected, correct)  #remember to add here any other column that you did not remove from the data frame
 
 ```
