@@ -10,36 +10,19 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-This file contains the work-in-progress analysis of a self-paced reading experiment on the role of syntactic information in the retrieval of NP-Coordinated subjects.
+This file contains the analysis of a self-paced reading experiment on the role of syntactic reactivation in the retrieval of DP-Coordination subjects.
 
 
 # Abstract
 
-The cue-based retrieval theory of sentence processing [3] assumes that linguistic items are encoded in Working Memory based on their featural content. Information such as syntactic category and grammatical number are encoded for each item and can then be used as cues for retrieval. Relevant questions in this respect are what exactly constitutes a single item and how detailed is the representation of hierarchical information in working memory.
+The goal of the present study is to empirically investigate the reality of an understudied component of the cue-based retrieval model (Lewis & Vasishth, 2005): activation boost due to successive retrievals. This is achieved by leveraging the hierarchical configuration of DP-coordination: Relative Clause attachment is manipulated in a 2-condition design, such that different memory representations are reactivated in the two conditions. 
 
-  Monosyndetic NP-coordination [5] provides a unique opportunity to investigate the issue. In contrast to early syntactic analyses of coordination, many current accounts [1, 2, 4, 5] propose an asymmetric structure headed by the conjoining element. The two conjuncts are either specifier and complement in a &P [1], or attached by adjunction [4]. This analysis has direct implications for retrieval: in sentences like “The boy and the girl that the teacher praised are smiling”, the set of cues that are specified upon encountering the matrix VP “are smiling” includes [subject] and [plural]. Neither cue is however found in any of the NPs encountered in the sentence, a fact that would lead to a problematic retrieval, if there was no &P entry in WM. Under a headed account of coordination, the subject “The boy and the girl” is treated as a unique syntactic item, allowing for the [subject] and [plural] features to be encoded in WM and used as cues for retrieval, without the need for additional mechanisms.
-  
-  A two condition self-paced reading experiment was designed to test the hypothesis that the WM representation of a &P is distinct from the ones associated with the single NPs embedded in it. The experiment will be carried out in Italian, a language with obligatory number agreement, which also allows for the manipulation of Relative Clause attachment. The number marking on the relative clause verb allows to force a different RC attachment in the two conditions: in one case [1a] the whole &P is modified by the RC, while in the other case [1b] only the second conjunct is modified. As a consequence, activation of the &P is predicted to be boosted in [1a], while in [1b] it is the second-conjunct NP that receives the boost due to reactivation. In line with this hypothesis, longer reading times are expected at the matrix verb in [1b] compared to [1a].
-  
-  Sentences are presented on the screen one at a time. Every sentence is followed by a yes/no comprehension to ensure active participation.
-
-  Data from a large sample of native speakers of Italian will be collected through Prolific (https://www.prolific.com), and analysed with Bayesian hierarchical models as well as Bayes Factor analyses. The main region of interest is the matrix verb, with additional analyses planned for the spillover region(s), as well as the RC verb.  
-
-
-References
-[1] Johannessen, J. B. (1998). Coordination. Oxford University Press.
-[2] Kayne, R. S. (1994). The antisymmetry of syntax (Vol. 25). MIT press.
-[3] Lewis, R. L., & Vasishth, S. (2005). An Activation-Based Model of Sentence Processing as Skilled Memory Retrieval. Cognitive Science, 29, 375-419.
-[4] Munn, A. B. (1993). Topics in the syntax and semantics of coordinate structures. University of Maryland, College Park.
-[5] Zwart, J. W. (2005). Some notes on coordination in head-final languages. Linguistics in the Netherlands, 22(1), 231-242.
-
-
+Method: 240 native speakers of Italian, recruited through Prolific, completed a moving window self-paced reading task. 2-condition design; 32 experimental items; 64 filler items; yes/no comprehension questions after each trial.
 
 Item example:
 
-1.
 
-a) L'assistente | e | il presidente | che | hanno sostenuto | l'intervista | con | i giornalisti | del quotidiano | *tornano* | 
+(a) L'assistente | e | il presidente | che | hanno sostenuto | l'intervista | con | i giornalisti | del quotidiano | *tornano* | 
 
 velocemente | in ufficio.
 
@@ -57,9 +40,8 @@ velocemente | in ufficio.
   *go_back(PL)* | quickly | to the office.  
 
 
-H1: Detailed hierarchical information enter the WM representations of each item. &P is encoded in addition to the two DPs it is composed of, and is the correct target for retrieval. A slowdown is expected on the matrix verb (the critical point of retrieval) in condition 1b with respect to 1a.
+In both conditions, retrieval of the full coordination ("the assistant and the president") is necessary at the matrix verb (“return”). Manipulating the number marking on the Relative Clause (RC) verb (singular vs plural) forces different RC attachments in the two conditions: the whole coordination is retrieved and interpreted as the subject of the RC in (a), while only the second conjunct (the president) is retrieved in (b). If reactivation boosts activation, retrieval at the matrix verb should be facilitated more in (a) than in (b), leading to faster reading times. Therefore, we predict higher reading times at the matrix verb in condition (b) with respect to (a).
 
-H0: Detailed hierarchical information are not encoded in the WM entry of each items. There is no &P entry in Working Memory and can thus not be the target for retrieval. No difference in Reading Times is expected on the main verb in the two conditions. 
 
 
 
@@ -68,24 +50,15 @@ Load packages and set options
 
 ```{r Packages, include=FALSE, results='hide'}
 
-library(MASS)
 library(tidyverse)
-library(extraDistr)
-library(loo)
 library(bridgesampling)
 library(brms)
-library(bayesplot)
 library(lme4)
 library(rstan)
-library(SHELF)
-library(rootSolve)
 library(patchwork)
 library(gt)
-library(invgamma)
-library(TruncatedNormal)
-library(truncnorm)
-library(stats)
-library(reshape2)
+library(ggtext)
+
 
 theme_set(theme_minimal())
 
@@ -192,71 +165,63 @@ short_summary <- function (x, digits = 2, ...)
 ```
 
 
+### Data pre-processing
 
-### Data analysis
 
-Load the dataset 
+Load the complete dataset
 
 ```{r}
 
-dat <- read_csv("coord_spr.csv", show_col_types = FALSE)
+dat <- read_csv("coord_spr_tot.csv", show_col_types = FALSE)
 
 ```
 
 
-Have a look at the RTs distribution
+Check which subject have <70% accuracy on experimental items
 
 ```{r}
 
-hist(dat$rt)
+dat |> 
+  group_by(subj) |> 
+  summarize(mean_correct_exp = round(mean(correct[condition != "fill"]), 2)) |> 
+  filter(mean_correct_exp < 0.7)
 
 ```
 
 
+Check for very long RTs
 
 ```{r}
 
-lower_bound <- quantile(dat$rt, 0.025)  
-upper_bound <- quantile(dat$rt, 0.975) 
-
-dens_dat <- ggplot(dat, aes(x = rt)) +
-  geom_density(color = "black") +
-  geom_ribbon(
-    aes(ymin = 0, ymax = after_stat(density)), 
-    alpha = 0.6, fill = "blue3", stat = "density",
-    data = subset(dat, rt >= lower_bound & rt <= upper_bound)) +
-  labs(x = "Reading Time",
-       y = "Density") + 
-  ggtitle("Reading Times with 95% interval highlighted") +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 12), axis.title = element_text(size = 10))
-
-dens_dat
-
-```
-
-The insanely high values (mostly at the end of sentences) don't allow for a realistic visualization.
-
-
-Some summary stats
-
-```{r}
-
-summary(dat$rt)
-
-dat$rt[dat$rt > 100000]
-
-dat$rt[dat$rt > 6000]
-
-dat$rt[dat$rt < 100]
+dat |> 
+  group_by(subj) |> 
+  filter(condition != "fill") |> 
+  summarize(mean_correct = round(mean(correct), 2),
+            rt_rc_pre = round(mean(rt[roi_number == 4], na.rm = TRUE), ),
+            rt_rc = round(mean(rt[roi_number == 5], na.rm = TRUE), ),
+            rt_rc_spill = round(mean(rt[roi_number == 6], na.rm = TRUE), ),
+            rt_mv_pre = round(mean(rt[roi_number == 9], na.rm = TRUE), ),
+            rt_mv = round(mean(rt[roi_number == 10], na.rm = TRUE), ),
+            rt_mv_spill = round(mean(rt[roi_number == 11], na.rm = TRUE), ),
+            rt_end = round(mean(rt[roi_number == 12], na.rm = TRUE), ),
+            rt_tot = round(mean(rt, na.rm = TRUE), )
+            ) |> 
+  filter(rt_tot > 2000)
 
 ```
 
 
-There are some insanely high values that are likely to be points in which the subjects took a pause (not sanctioned by the experimental procedure) during the sentence screen. We will remove all the values higher than some arbitrary threshold.
+Remove the fillers
+
+```{r}
+
+dat <- dat |> 
+  filter(condition != "fill")
+
+```
 
 
-Remove RTs longer than 6000ms
+Remove RTs longer than 6000ms, which are likely to reflect unsanctioned pauses, rather than cognitive processes of interest.
 
 ```{r}
 
@@ -275,52 +240,6 @@ dat <- dat |>
 
 ```
 
-Look at the data again
-
-
-Histogram 
-
-```{r}
-
-hist_dat <- ggplot(
-  dat,
-  aes(x = rt, y = after_stat(density))
-  ) +
-  geom_histogram(alpha = 0.6, binwidth = 50, color = "black", fill = "blue") +
-  labs(x = "Reading Time", y = "Density") +
-  ggtitle("Reading Times in the whole dataset") +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 12), axis.title = element_text(size = 10))
-
-hist_dat
-
-```
-
-
-Density plot
-
-```{r}
-
-lower_bound <- quantile(dat$rt, 0.025)  
-upper_bound <- quantile(dat$rt, 0.975) 
-
-dens_dat <- ggplot(dat, aes(x = rt)) +
-  geom_density(color = "black") +
-  geom_ribbon(
-    aes(ymin = 0, ymax = after_stat(density)), 
-    alpha = 0.6, fill = "blue3", stat = "density",
-    data = subset(dat, rt >= lower_bound & rt <= upper_bound)) +
-  labs(x = "Reading Time",
-       y = "Density") + 
-  ggtitle("Reading Times (whole dataset) with 95% interval highlighted") +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 12), axis.title = element_text(size = 10))
-
-dens_dat
-
-```
-
-
 
 Remove low-accuracy participants (subjects 9, 71, 86, 173 --> they all have <70% accuracy on experimental items)
 
@@ -332,14 +251,19 @@ dat <- dat |>
 ```
 
 
-We also remove subject 199, who has very weird RTs, probably due to him stopping/resuming the experiment at various points of the sentences, multiple times (half of his experimental items have insanely long RTs at various ROIs)
+Also remove subject 199, who has very high RTs, probably due to him stopping/resuming the experiment at various points of the sentences, multiple times (half of his experimental items have insanely long RTs at various ROIs)
 
 ```{r}
+
+dat |> filter(subj == 199, rt>2000, roi_number == 10) |> pull(rt)
 
 dat <- dat |> 
   filter(subj != 199)
 
 ```
+
+
+### Data analysis
 
 
 Sum-code the predictor
@@ -352,7 +276,7 @@ dat <- dat |>
 ```
 
 
-Generate subsets for the single regions (if necessary):
+Generate subsets for the single regions:
 
 
 Critical region (main verb)
@@ -426,98 +350,6 @@ rcv_spill <- dat |>
 ```
 
 
-Check latin-square design
-
-```{r}
-
-xtabs(~ subj + item, dat)
-
-xtabs(~ subj + item, mv)
-
-```
-
-
-
-Look at the RTs distribution on the Critical Region (the Matrix Verb)
-
-```{r}
-
-hist_mv <- ggplot(
-  mv,
-  aes(x = rt, y = after_stat(density))
-  ) +
-  geom_histogram(alpha = 0.6, binwidth = 50, color = "black", fill = "blue") +
-  scale_x_continuous(breaks = seq(0, max(mv$rt), by = 500)) +
-  labs(x = "Reading Time (ms)", y = "Density") +
-  ggtitle("Reading Times at the Matrix Verb") +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 12), axis.title = element_text(size = 10))
-
-hist_mv
-
-```
-
-
-```{r}
-
-lower_bound <- quantile(mv$rt, 0.025)  
-upper_bound <- quantile(mv$rt, 0.975) 
-
-dens_dat <- ggplot(mv, aes(x = rt)) +
-  geom_density(color = "black") +
-  geom_ribbon(
-    aes(ymin = 0, ymax = after_stat(density)), 
-    alpha = 0.6, fill = "blue3", stat = "density",
-    data = subset(mv, rt >= lower_bound & rt <= upper_bound)) +
-  labs(x = "Reading Time",
-       y = "Density") + 
-  ggtitle("Reading Times (matrix verb) with 95% interval highlighted") +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 12), axis.title = element_text(size = 10))
-
-dens_dat
-```
-
-
-Take a look at the raw RT means by condition (boxplot)
-
-```{r}
-
-box_mv <- ggplot(
-  mv,
-  aes(y = rt, x = condition)
-  ) +
-  geom_boxplot(alpha = 0.7) +
-  labs(x = "Condition",
-       y = "") +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 10), axis.title = element_text(size = 10))
-
-box_mv
-
-```
-Note the big skew in the distribution, as expected in reading times.
-
-Look at the log-transformed version
-
-```{r}
-
-box_logmv <- ggplot(
-  mv,
-  aes(y = log(rt), x = condition)
-) +
-  geom_boxplot(alpha = 0.7) +
-  labs(x = "Condition",
-       y = "") +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 10), axis.title = element_text(size = 10))
-
-box_logmv
-
-```
-
-
-
 Look at the raw summary numbers
 
 ```{r}
@@ -525,301 +357,148 @@ Look at the raw summary numbers
 mv |> 
   group_by(condition) |> 
   summarize(mean_correct = round(mean(correct), 2), 
-            rt = round(mean(rt, na.rm = TRUE), ))
-
+            RT = round(mean(rt, na.rm = TRUE), ))
 
 ```
 
 Numerically, there is no difference between the accuracy in the two conditions, but there is a difference in mean RTs at the Matrix Verb. 
 
-**Additional visual checks**
 
-Visualize RTs by condition for each participant
+Plot raw RTs by condition by region
 
-```{r, fig.height=25, fig.width=25}
+```{r, fig.height=8, fig.width=20}
 
-rt_bysubj_scatter <- ggplot(
-  mv,
-  aes(y = log(rt), x = condition)
+# Calculate mean RTs and SE by condition and by ROI
+
+summary_data <- dat %>%
+  group_by(condition, roi_number) %>%
+  summarise(
+    mean_rt = mean(rt),
+    se_rt = sd(rt) / sqrt(n())
+  )
+
+
+
+# Define x-axis labels with HTML <br> tags for new lines and bold for the critical region
+x_labels <- c(
+  "L'assistente<br><br>The assistant", 
+  "e<br><br>and", 
+  "il presidente<br><br>the president", 
+  "che<br><br>that", 
+  "ha/hanno sostenuto<br><br>has/have done", 
+  "l'intervista<br><br>the interview", 
+  "con<br><br>with", 
+  "i giornalisti<br><br>the journalists", 
+  "del quotidiano<br><br>of the newspaper", 
+  "***tornano***<br><br>***return***",  # Bold the critical region "tornano"
+  "velocemente<br><br>quickly", 
+  "in ufficio.<br><br>to the office."
+)
+
+# Create a named vector for the labels
+names(x_labels) <- 1:12
+
+# Convert the named vector to a factor with levels
+summary_data$roi_number <- factor(summary_data$roi_number, levels = 1:12)
+
+rt_bycond_byroi <- ggplot(summary_data, aes(x = roi_number, y = mean_rt, shape = condition, group = condition, linetype = condition)) +
+  geom_line(linewidth = 0.8) + 
+  geom_point(size = 4) +
+  geom_errorbar(aes(ymin = mean_rt - se_rt, ymax = mean_rt + se_rt), width = 0.2) +
+  scale_shape_manual(values = c("sing" = 2, "plur" = 0)) +  # Assign hollow triangle to "sing" and hollow square to "plur"
+  scale_x_discrete(labels = x_labels) +
+  labs(
+    title = "Reading Time by Region",
+    x = "Region of Interest",
+    y = "Mean Reading Time (ms)"
   ) +
-  geom_jitter(alpha = 0.7) + 
-  theme(plot.title = element_text(size = 10), axis.title = element_text(size = 10)) +
-  facet_wrap(~ subj, ncol = 15)
-
-rt_bysubj_scatter
-
-ggsave(
-  filename = "scatterplot_of_RTs_by_condition_for_each_subject.png",
-  plot = rt_bysubj_scatter + theme_minimal() + theme(plot.background = element_rect(fill = "white")),
-  dpi = 300,
-  width = 25,  
-  height = 25
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 20, face = "bold", margin = margin(b = 20)),
+    axis.title.x = element_text(size = 18, margin = margin(t = 20)),
+    axis.title.y = element_text(size = 18, margin = margin(r = 20)),
+    axis.text.x = element_markdown(size = 15, margin = margin(t = 5)),  # Use element_markdown to support markdown
+    axis.text.y = element_text(size = 14),
+    legend.title = element_text(size = 20),
+    legend.text = element_text(size = 18),
+    plot.margin = margin(t = 10, l = 10, r = 10, b = 10)  # Adjust margins if necessary
   )
+  
 
-
+rt_bycond_byroi
 
 ```
 
 
-Individual boxplots
+Now the same but on log-transformed RTs
 
-```{r, fig.height=25, fig.width=25}
+```{r, fig.height=8, fig.width=20}
 
-rt_bysubj_box <- ggplot(
-  mv,
-  aes(y = log(rt), x = condition)
+# Calculate log mean RTs and SE by condition and by ROI
+
+log_summary_data <- dat %>%
+  group_by(condition, roi_number) %>%
+  summarise(
+    mean_rt = mean(log(rt)),
+    se_rt = sd(log(rt)) / sqrt(n())
+  )
+
+
+# Define x-axis labels with HTML <br> tags for new lines and bold for the critical region
+x_labels <- c(
+  "L'assistente<br><br>The assistant", 
+  "e<br><br>and", 
+  "il presidente<br><br>the president", 
+  "che<br><br>that", 
+  "ha/hanno sostenuto<br><br>has/have done", 
+  "l'intervista<br><br>the interview", 
+  "con<br><br>with", 
+  "i giornalisti<br><br>the journalists", 
+  "del quotidiano<br><br>of the newspaper", 
+  "***tornano***<br><br>***return***",  # Bold the critical region "tornano"
+  "velocemente<br><br>quickly", 
+  "in ufficio.<br><br>to the office."
+)
+
+# Create a named vector for the labels
+names(x_labels) <- 1:12
+
+# Convert the named vector to a factor with levels
+log_summary_data$roi_number <- factor(log_summary_data$roi_number, levels = 1:12)
+
+log_rt_bycond_byroi <- ggplot(log_summary_data, aes(x = roi_number, y = mean_rt, shape = condition, group = condition, linetype = condition)) +
+  geom_line(linewidth = 0.8) + 
+  geom_point(size = 4) +
+  geom_errorbar(aes(ymin = mean_rt - se_rt, ymax = mean_rt + se_rt), width = 0.2) +
+  scale_shape_manual(values = c("sing" = 2, "plur" = 0)) +  # Assign hollow triangle to "sing" and hollow square to "plur"
+  scale_x_discrete(labels = x_labels) +
+  labs(
+    title = "Reading Time by Region, log-transformed",
+    x = "Region of Interest",
+    y = "Mean Reading Time (log(ms))"
   ) +
-  geom_boxplot(alpha = 0.7) + 
-  theme(plot.title = element_text(size = 10), axis.title = element_text(size = 10)) +
-  facet_wrap(~ subj, ncol = 15)
-
-rt_bysubj_box
-
-ggsave(
-  filename = "boxplot_of_RTs_by_condition_for_each_subject.png",
-  plot = rt_bysubj_box + theme_minimal() + theme(plot.background = element_rect(fill = "white")),
-  dpi = 300,
-  width = 25,  
-  height = 25
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 20, face = "bold", margin = margin(b = 20)),
+    axis.title.x = element_text(size = 18, margin = margin(t = 20)),
+    axis.title.y = element_text(size = 18, margin = margin(r = 20)),
+    axis.text.x = element_markdown(size = 15, margin = margin(t = 5)),  # Use element_markdown to support markdown
+    axis.text.y = element_text(size = 14),
+    legend.title = element_text(size = 20),
+    legend.text = element_text(size = 18),
+    plot.margin = margin(t = 10, l = 10, r = 10, b = 10)  # Adjust margins if necessary
   )
+  
 
-
-```
-
-
-
-Take a look at individual differences in the effect in no-pooling vs hierarchical models (the no-pooling model is theoretically nonsensical here, it's just to see the difference in shrinkage)
-
-No-pooling model
-
-```{r,fig.height=25, fig.width=20}
-
-fit_np <- brm(rt ~ 0 + factor(subj) + singplur:factor(subj),
-              family = lognormal(),
-              prior = c(
-                prior(normal(0, 1), class = b),
-                prior(normal(0, 1), class = sigma)),
-              data = mv
-              )
-
-
-# parameter name of beta by subject:
-
-ind_effects_np <- paste0("b_factorsubj",
-                      unique(mv$subj), ":singplur")
-
-
-beta_across_subj <- as.data.frame(fit_np) |> 
-#removes the meta data from the object
-  select(all_of(ind_effects_np)) |> 
-  rowMeans()
-
-
-# Calculate the average of these estimates
-grand_av_beta <- tibble(mean = mean(beta_across_subj),
-                         lq = quantile(beta_across_subj, c(0.025)),
-                         hq = quantile(beta_across_subj, c(0.975)))
-
-
-# make a table of beta's by subject
-
-beta_by_subj <- posterior_summary(fit_np,
-                                  variable = ind_effects_np) |> 
-  as.data.frame() |> 
-  mutate(subject = 1:n()) |> 
-## reorder plot by magnitude of mean:
-  arrange(Estimate) |> 
-  mutate(subject = factor(subject, levels = subject))
-
-ggplot(beta_by_subj,
-       aes(x = Estimate, xmin = Q2.5, xmax = Q97.5, y = subject)) +
-  geom_point() +
-  geom_errorbarh() +
-  geom_vline(xintercept = grand_av_beta$mean) +
-  geom_vline(xintercept = grand_av_beta$lq, linetype = "dashed") +
-  geom_vline(xintercept = grand_av_beta$hq, linetype = "dashed") +
-  xlab("By-subject effect of number marking on the Relative Clause verb, in log(ms)")
+log_rt_bycond_byroi
 
 ```
 
-
-
-
-
-```{r, fig.height=25, fig.width=20}
-
-fit_mv_small_indv <- brm(rt ~ singplur +
-                           (singplur | subj) +
-                           (singplur | item),
-                         family = lognormal(),
-                         prior = c(
-                           prior(normal(6.5, 0.8), class = Intercept),
-                           prior(normal(0, 0.02), class = b, coef = singplur),
-                           prior(normal(0, 1), class = sigma),
-                           prior(normal(0, 1), class = sd),
-                           prior(lkj(2), class = cor)),
-                         data = mv
-                         )
-
-
-
-# make a table of u_2s
-
-ind_effects_indv <- paste0("r_subj[", unique(mv$subj),
-",singplur]")
-
-u_2_indv <- posterior_summary(fit_mv_small_indv, variable = ind_effects_indv) |> 
-  as_tibble() |> 
-  mutate(subj = 1:n()) |> 
-  ## reorder plot by magnitude of mean:
-  arrange(Estimate) |> 
-  mutate(subj = factor(subj, levels = subj))
-
-# We plot:
-
-ggplot(u_2_indv,
-       aes(x = Estimate, xmin = Q2.5, xmax = Q97.5, y = subj)) +
-  geom_point() +
-  geom_errorbarh() +
-  xlab("By-subject adjustment to the slope in log(ms)")
-
-```
-
-Compare the no-pooling with the hierarchical model individual estimates
-
-```{r, fig.height=25, fig.width=20}
-
-# Extract parameter estimates from the no pooling model:
-par_np <- posterior_summary(fit_np, variable = ind_effects_np) |> 
-  as_tibble() |> 
-  mutate(model = "No pooling",
-         subj = unique(mv$subj))
-
-# For the hierarchical model, the code is more complicated
-# because we want the effect (beta) + adjustment.
-
-# Extract the overall group level effect:
-beta <- c(as_draws_df(fit_mv_small_indv)$b_singplur)
-
-# Extract the individual adjustments:
-ind_effects_indv <- paste0("r_subj[", unique(mv$subj), ",singplur]")
-
-adjustment <- as_draws_matrix(fit_mv_small_indv, variable = ind_effects_indv)
-
-# Get the by subject effects in a data frame where each adjustment is in each column.
-
-# Remove all the draws meta data by using as.data.frame
-by_subj_effect <- as.data.frame(beta + adjustment)
-
-# Summarize them by getting a table with the mean and the quantiles for each column and then binding them.
-par_h <- lapply(by_subj_effect, function(x) {
-  tibble(Estimate = mean(x),
-         Q2.5 = quantile(x, .025),
-         Q97.5 = quantile(x, .975))}) |> 
-  bind_rows() |> 
-  # Add a column to identify the model, and one with the subject labels:
-  mutate(model = "Hierarchical",
-         subj = unique(mv$subj))
-
-# The mean and 95% CI of both models in one data frame:
-by_subj_df <- bind_rows(par_h, par_np) |> 
-  arrange(Estimate) |> 
-  mutate(subj = factor(subj, levels = unique(.data$subj)))
-
-b_singplur <- posterior_summary(fit_mv_small_indv, variable = "b_singplur")
-
-ggplot(by_subj_df,
-       aes(ymin = Q2.5, ymax = Q97.5, x = subj,
-           y = Estimate, color = model, shape = model)) +
-  geom_errorbar(position = position_dodge(1)) +
-  geom_point(position = position_dodge(1)) +
-  # We'll also add the mean and 95% CrI of the overall difference to the plot:
-  geom_hline(yintercept = b_singplur[, "Estimate"]) +
-  geom_hline(yintercept = b_singplur[, "Q2.5"],
-             linetype = "dotted", linewidth = .5) +
-  geom_hline(yintercept = b_singplur[, "Q97.5"],
-             linetype = "dotted", linewidth = .5) +
-  xlab("subj") +
-  ylab("Effect of RCV number marking on MV RTs") +
-  coord_flip()
-
-```
-
-
-Look at the hierarchical model individual estimates by themselves 
-
-```{r, fig.height=25, fig.width=20}
-
-# Extract the overall group level effect:
-beta <- c(as_draws_df(fit_mv_small_indv)$b_singplur)
-
-# Extract the individual adjustments:
-ind_effects_indv <- paste0("r_subj[", unique(mv$subj), ",singplur]")
-
-adjustment <- as_draws_matrix(fit_mv_small_indv, variable = ind_effects_indv)
-
-# Get the by subject effects in a data frame where each adjustment is in each column.
-
-# Remove all the draws meta data by using as.data.frame
-by_subj_effect <- as.data.frame(beta + adjustment)
-
-# Summarize them by getting a table with the mean and the quantiles for each column and then binding them.
-par_h <- lapply(by_subj_effect, function(x) {
-  tibble(Estimate = mean(x),
-         Q2.5 = quantile(x, .025),
-         Q97.5 = quantile(x, .975))}) |> 
-  bind_rows() |> 
-  # Add a column to identify the model, and one with the subject labels:
-  mutate(model = "Hierarchical",
-         subj = unique(mv$subj))
-
-# The mean and 95% CI in a data frame:
-by_subj_df <- par_h |> 
-  arrange(Estimate) |> 
-  mutate(subj = factor(subj, levels = unique(.data$subj)))
-
-b_singplur <- posterior_summary(fit_mv_small_indv, variable = "b_singplur")
-
-effect_by_subj <- ggplot(by_subj_df,
-                         aes(ymin = Q2.5, ymax = Q97.5,
-                             x = subj, y = Estimate)) +
-  geom_errorbar(position = position_dodge(1)) +
-  geom_point(position = position_dodge(1)) +
-  # We'll also add the mean and 95% CrI of the overall difference to the plot:
-  geom_hline(yintercept = b_singplur[, "Estimate"],
-             linewidth = 0.8, color = "blue") +
-  geom_hline(yintercept = b_singplur[, "Q2.5"],
-             linetype = "dashed", linewidth = 0.8, color = "blue")  +
-  geom_hline(yintercept = b_singplur[, "Q97.5"],
-             linetype = "dashed", linewidth = 0.8, color = "blue") +
-  geom_hline(yintercept = 0,
-             linewidth = 0.8, color = "red") +
-  xlab("subj") +
-  ylab("Effect of RCV number marking on MV RTs") +
-  coord_flip()
-
-
-ggsave(
-  filename = "Individual differences in the effect of interest.png",
-  plot = effect_by_subj + theme_minimal() + theme(plot.background = element_rect(fill = "white")),
-  dpi = 300,
-  width = 20,  
-  height = 25
-  )
-
-effect_by_subj
-
-```
-
-
-
-
-Let's proceed with a Frequentist analysis, and then the Bayesian version. 
 
 ### Frequentist LMEMs
 
 
-#Critical region (Matrix Verb)
+# Critical region (Matrix Verb)
 
 Maximal model
 
@@ -835,8 +514,8 @@ summary(mv_freq_max)
 
 ```
 
-Let's simplify the model to avoid convergence failures 
 
+Simplify the model to avoid convergence failures 
 
 
 Varying Intercepts only
@@ -854,7 +533,6 @@ summary(mv_freq_vi)
 ```
 
 
-
 Null model
 
 ```{r}
@@ -868,77 +546,19 @@ mv_freq_null <- lmer(log(rt) ~ 1 +
 ```
 
 
+ANOVA likelihood ratio test
+
 ```{r}
 
 anova(mv_freq_vi, mv_freq_null)
 
 ```
 
-From a frequentist point of view, there is significant evidence in favor of our hypothesis (higher RTs in the sing condition at the Matrix Verb)
-
-
-
-**Have a look at the residuals** 
-
-```{r}
-
-car::qqPlot(residuals(mv_freq_vi)) 
-
-```
-
-
-```{r}
-
-# Add a constant to the residuals to make them all positive
-residuals_pos <- residuals(mv_freq_vi) - min(residuals(mv_freq_vi)) + 1
-
-# Create a lm object with the adjusted residuals
-residuals_lm <- lm(residuals_pos ~ 1)
-
-# Apply the Box-Cox transformation
-boxcox(residuals_lm)
-
-
-# Alternatively, fit a simple lm
-
-m <- lm(rt ~ singplur, mv)
-
-boxcox(m)
-
-# Apply the power transformation to the response variable
-mv$rt_transf <- mv$rt^-0.6
-
-# Now, fit a linear model using the transformed response variable
-m_transf <- lm(rt_transf ~ singplur, mv)
-
-# Plot residuals
-
-car::qqPlot(residuals(m_transf)) 
-
-# You can then use boxcox() to confirm the transformation
-bc_transf <- boxcox(m_transf)
-
-boxcox(m_transf)
-
-
-# See what happens with a lmem using this data 
-
-mv_transformed <- lmer(rt_transf ~ 1 + singplur + 
-                     (1 | subj) + 
-                     (1 | item), 
-                   data = mv
-                   )
-
-summary(mv_freq_vi)
-
-
-```
-
-Using this custom transform slightly improved the normality of the residuals, but it seems that no transform will make them perfectly normal at this point. Considering this and also the fact that nothing changes in terms of magnitude or significance of the fixed effect of interest, I will stick with the log-transform. 
-
+From a frequentist point of view, we can reject the null hypothesis (i.e., that the difference between conditions is 0)
 
 
 # Spillover region (critical +1)
+
 
 Varying intercepts model
 
@@ -967,6 +587,8 @@ mv_spill_freq_null <- lmer(log(rt) ~ 1 +
 
 ```
 
+
+ANOVA likelihood ratio test
 
 ```{r}
 
@@ -1007,13 +629,79 @@ mv_pre_freq_null <- lmer(log(rt) ~ 1 +
 ```
 
 
+ANOVA likelihood ratio test
+
 ```{r}
 
 anova(mv_spill_freq_vi, mv_spill_freq_null)
 
 ```
 
-No difference here 
+No difference between condition at the pre-critical region.
+
+
+# Check if the effect on the critical region survives after accounting for the RTs of the pre-critical region
+
+Autoregressive(1) model:
+
+Generate a column for RT-1
+
+```{r}
+
+dat <- dat |> 
+  group_by(subj, item) |>             # Lag within each trial
+  mutate(rt_lag = lag(rt)) |>         # Create lagged RT
+  ungroup()
+
+dat <- dat |> mutate(log_rt_lag = log(rt_lag))
+
+dat <- dat |> mutate(c_log_rt_lag = log_rt_lag - mean(log_rt_lag, na.rm = TRUE))
+
+mv <- dat |> 
+  filter(roi_number == "10")
+
+```
+
+
+Model
+
+```{r}
+
+mv_ar1 <- lmer(log(rt) ~ singplur + c_log_rt_lag +
+                 (1 | subj) + (1 | item),
+               data = mv)
+
+summary(mv_ar1)
+
+```
+
+The AR(1) model, taken together with the non-significant effect on the pre-critical region, confirms that the effect on the critical region is likely due to the experimental manipulation, and not to spillover from the preceding region.
+
+
+Alternative check: model with position as a fixed effect
+
+```{r}
+
+dat <- dat |> 
+  mutate(
+    roi_number = factor(roi_number, levels = sort(unique(roi_number)))
+  )
+
+contrasts(dat$roi_number) <- contr.helmert(length(unique(dat$roi_number)))
+
+model_pos_helmert <- lmer(log(rt) ~ condition * roi_number + 
+                            (1 | subj) + 
+                            (1 | item),
+                          data = dat)
+
+summary(model_pos_helmert)
+
+
+```
+
+The model output (specifically the interaction term "conditionsing:roi_number9") shows that the difference between conditions at the critical region (roi_number = 10) is significantly different from the difference across all previous regions.
+
+All 3 pieces (pre-critical non significant, AR(1) and cond*pos models) point in the direction that the effect we observe at the critical region is actually due to the experimental manipulation and not to spillover from previous regions.
 
 
 # Relative Clause verb
@@ -1045,6 +733,7 @@ rcv_freq_null <- lmer(log(rt) ~ 1 +
 
 ```
 
+ANOVA likelihood ratio test
 
 ```{r}
 
@@ -1052,9 +741,69 @@ anova(rcv_freq_vi, rcv_freq_null)
 
 ```
 
-Interesting, there seems to be a significant difference --> the Relative Clause verb is processed faster in the SINGULAR condition. It could be the sign of an unexpected attachment preference for the RC, where attaching it to the second conjunct is easier than attaching it to the whole &P. 
+The model shows significant evidence against the null hypothesis on the Relative Clause verb --> the RC verb is processed faster in the SINGULAR condition. Since Italian tends to show a preference for High Attachment in complex DPs (like PP-chains or DP-coordination), this difference is likely to be due to word length effects --> on the RCV the SING condition has shorter auxiliary ("ha" vs "hanno"). 
 
-**BUT** It could also just be due to word length effects --> on the RCV the Sing condition has shorter aux ("ha" vs "hanno"). Let's see if the effect continues in its spillover region.
+
+Include centered word length (wl, expressed as number of characters) as fixed effect
+
+Center word length
+
+```{r}
+
+dat <- dat |> 
+  mutate(c_wl = wl - mean(wl))
+
+rcv <- dat |> 
+  filter(roi_number == "5")
+
+```
+
+
+Model with centered wl as fixed effect
+
+```{r}
+
+rcv_freq_vi_c_wl <- lmer(log(rt) ~ 1 + singplur + c_wl +
+                      (1 | subj) + 
+                      (1 | item), 
+                    data = rcv
+                    )
+
+summary(rcv_freq_vi_c_wl)
+
+```
+
+
+Based on this model, it looks like the effect of condition (singplur) goes in the opposite (and expected) direction when we take word length into account: the singular condition is estimated to elicit numerically longer RTs than the plural condition. The effect is non significant in frequentist terms (t = 1.2). Word length, on the other hand, is estimated to lead to longer RTs significantly
+
+
+Residualization method
+
+```{r}
+
+fit_wl <- lm(log(rt) ~ c_wl, data = rcv)
+
+rcv <- rcv |> 
+  mutate(residual_rt = residuals(fit_wl))
+
+```
+
+
+Model with residual RTs as dependent variable
+
+```{r}
+
+rcv_freq_vi_res <- lmer(residual_rt ~ singplur +
+                               (1 + singplur | subj) +
+                               (1 + singplur | item),
+                             data = rcv)
+
+summary(rcv_freq_vi_res)
+
+```
+
+
+To me it looks like the model with c_wl in the fixed effects shows that the difference between conditions is mainly due to word length differences, with a small, non-significant effect of condition, such that SING is read slower than PLUR The residualization method seem to suggest that after accounting for word length differences, the SING condition is read significantly slower than PLUR. Both models go in the same direction, but the first method would not give a "significant" effect of condition, while the second one does. In both cases, once we account for word length differences, the difference between conditions is not longer negative (i.e., SING faster than PLUR), but positive (SING slower than PLUR), which is compatible with the fact that Italian native speaker should be slightly biased towards a preference for High Attachment of the relative clause, which likely leads to a slowdown in the "SING" condition (which is the Low Attachment condition) due to a disconfermed prediction. 
 
 
 # Relative clause spillover region (rcv +1)
@@ -1093,7 +842,8 @@ anova(rcv_spill_freq_vi, rcv_spill_freq_null)
 
 ```
 
-The effect seems to be reversed in the region following the RC verb (the RC object, for instance "l'intervista / the interview" in the example sentence above), which could signal that the RCV difference was indeed due to word length difference, with subsequent compensation in the following region.
+
+In the spillover region (the RC object, for instance "l'intervista / the interview" in the example sentence above), where word length is no longer different, the effect clearly persists, with the singular condition eliciting slower reading times than the plural condition. 
 
 
 # RC onset (RC Verb -1, i.e., "che/that")
@@ -1132,7 +882,7 @@ anova(rcv_pre_freq_vi, rcv_pre_freq_null)
 
 ```
 
-No difference at all at the RC onset, as I would expect. 
+No difference at the RC onset.
 
 
 ------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1140,7 +890,7 @@ No difference at all at the RC onset, as I would expect.
 ### Bayesian Analysis
 
 
-**We run various models for each Region of Interest: 3 "agnostic" models with increasing prior sd on the slope, and in the case of the critical region, one hypothesis-driven model with a positive but small prior for the slope**
+**We run various models for each Region of Interest: 3 "agnostic" models (the models encode the a-priori assumption that the effect will be centered around 0, with varying degrees of uncertainty). For the critical region, one hypothesis-driven model with a positive but small prior for the slope is also defined. This model encodes the a-priori assumption that the difference between conditions will be positive, centered around 25ms, with possible values ranging from 0 to 150ms**
 
 
 # Critical region (Matrix Verb)
@@ -1166,7 +916,6 @@ fit_mv_small <- brm(rt ~ singplur +
                     save_pars = save_pars(all = TRUE)
                     )
 
-#plot(fit_mv_small)
 
 short_summary(fit_mv_small)
 
@@ -1193,14 +942,12 @@ fit_mv_med <- brm(rt ~ singplur +
                   save_pars = save_pars(all = TRUE)
                   )
 
-#plot(fit_mv_med)
-
 short_summary(fit_mv_med)
 
 ```
 
 
-Agnostic and large - N(0, 1)
+Agnostic and large - N(0, 0.1)
 
 ```{r}
 
@@ -1210,7 +957,7 @@ fit_mv_large <- brm(rt ~ singplur +
                     family = lognormal(),
                     prior = c(
                       prior(normal(6.5, 0.8), class = Intercept),
-                      prior(normal(0, 1), class = b, coef = singplur),
+                      prior(normal(0, 0.1), class = b, coef = singplur),
                       prior(normal(0, 1), class = sigma),
                       prior(normal(0, 1), class = sd),
                       prior(lkj(2), class = cor)),
@@ -1220,14 +967,12 @@ fit_mv_large <- brm(rt ~ singplur +
                     save_pars = save_pars(all = TRUE)
                     )
 
-#plot(fit_mv_large)
-
 short_summary(fit_mv_large)
 
 ```
 
 
-Positive and small - N(0.02, 0.02)
+Positive and small - N(0.04, 0.02)
 
 ```{r}
 
@@ -1237,7 +982,7 @@ fit_mv_enth <- brm(rt ~ singplur +
                    family = lognormal(),
                    prior = c(
                      prior(normal(6.5, 0.8), class = Intercept),
-                     prior(normal(0.02, 0.02), class = b, coef = singplur),
+                     prior(normal(0.04, 0.02), class = b, coef = singplur),
                      prior(normal(0, 1), class = sigma),
                      prior(normal(0, 1), class = sd),
                      prior(lkj(2), class = cor)),
@@ -1246,8 +991,6 @@ fit_mv_enth <- brm(rt ~ singplur +
                    warmup = 2000,
                    save_pars = save_pars(all = TRUE)
                    )
-
-#plot(fit_mv_enth)
 
 short_summary(fit_mv_enth)
 
@@ -1271,14 +1014,13 @@ ppd_mv_large <- mcmc_dens(fit_mv_large, pars = variables(fit_mv_large)[2]) +
   theme(plot.title = element_text(size = 10))
 
 ppd_mv_enth <- mcmc_dens(fit_mv_enth, pars = variables(fit_mv_enth)[2]) + 
-  ggtitle("Normal(0.02, 0.02)") +
+  ggtitle("Normal(0.04, 0.02)") +
   theme(plot.title = element_text(size = 10))
 
 mv_post_dist <- (ppd_mv_small + ppd_mv_med) /
   (ppd_mv_large + ppd_mv_enth)
 
 mv_post_dist
-
 
 ggsave(
   filename = "mv_post_dist.png",
@@ -1291,7 +1033,7 @@ ggsave(
 ```
 
 
-Now we can look at how the different priors for the slope parameter impact the posterior difference between conditions.
+Look at how the different priors for the slope parameter impact the posterior difference between conditions.
 
 Extract draws for Intercept and Slope posteriors, and compute the median difference between conditions:
 
@@ -1331,17 +1073,17 @@ Combine the data and generate a summary table:
 ```{r}
 
 combined_med_diff_beta <- data.frame(med_diff_small, 
-                                     med_diff_med, 
-                                     med_diff_large, 
+                                     med_diff_med,
+                                     med_diff_large,
                                      med_diff_enth
                                      )
 
 
 summ_med_diff <- data.frame(
-  Prior = c("Normal(0, 0.02)", "Normal(0, 0.05)", "Normal(0, 1)", "Normal(0.02, 0.02)"),
-  'Mean diff (ms)' = round(apply(combined_med_diff_beta, 2, mean), 3),
-  Q2.5 = round(apply(combined_med_diff_beta, 2, function(x) quantile(x, 0.025)), 3),
-  Q97.5 = round(apply(combined_med_diff_beta, 2, function(x) quantile(x, 0.975)), 3),
+  Prior = c("Normal(0, 0.02)", "Normal(0, 0.05)", "Normal(0, 0.1)", "Normal(0.04, 0.02)"),
+  'Mean diff (ms)' = round(apply(combined_med_diff_beta, 2, mean), ),
+  Q2.5 = round(apply(combined_med_diff_beta, 2, function(x) quantile(x, 0.025)), ),
+  Q97.5 = round(apply(combined_med_diff_beta, 2, function(x) quantile(x, 0.975)), ),
   check.names = FALSE
 )
 
@@ -1350,10 +1092,10 @@ rownames(summ_med_diff) <- NULL
 
 mv_post_table <- gt(summ_med_diff, rowname_col = "Prior") |> 
   tab_stubhead(label = "Prior") |> 
-  tab_header("A summary, under different priors, of the posterior
-distributions of the mean difference between the two conditions
-reading times, on the matrix verb region,
-back-transformed to the millisecond scale.") |> 
+  #tab_header("A summary, under different priors, of the posterior
+#distributions of the mean difference between the two conditions
+#reading times, on the matrix verb region,
+#back-transformed to the millisecond scale.") |> 
   tab_options(heading.title.font.size = 14) |> 
   opt_table_font(font = google_font("Tinos")) |> 
   tab_options(container.height = 300)
@@ -1363,7 +1105,7 @@ mv_post_table
 
 library(webshot2)
 
-gtsave(mv_post_table, file = "mv_post_table.png")
+gtsave(mv_post_table, file = "mv_post_table3.png")
 
 ```
 
@@ -1392,13 +1134,15 @@ short_summary(fit_mv_null)
 ```
 
 
-**Bayes Factors**
+### Bayes Factors
 
 Agnostic and small - N(0, 0.02)
 
 ```{r}
 
-bayes_factor(fit_mv_small, fit_mv_null)
+B10 <- bayes_factor(fit_mv_small, fit_mv_null)
+
+B10
 
 ```
 
@@ -1406,58 +1150,94 @@ Agnostic and medium - N(0, 0.05)
 
 ```{r}
 
-bayes_factor(fit_mv_med, fit_mv_null)
+B20 <- bayes_factor(fit_mv_med, fit_mv_null)
+
+B20
 
 ```
 
 
-Agnostic and large - N(0, 1)
+Agnostic and large - N(0, 0.1)
 
 ```{r}
 
-bayes_factor(fit_mv_large, fit_mv_null)
+B30 <- bayes_factor(fit_mv_large, fit_mv_null)
+
+B30
 
 ```
 
 
-Positive and small - N(0.02, 0.02)
+Positive and small - N(0.04, 0.02)
 
 ```{r}
 
-bayes_factor(fit_mv_enth, fit_mv_null)
+B40 <- bayes_factor(fit_mv_enth, fit_mv_null)
+
+B40
 
 ```
 
-Agnostic small vs Positive small
+
+Combine the BFs into a tibble
 
 ```{r}
 
-bayes_factor(fit_mv_small, fit_mv_enth)
+bayes_factors <- tibble(
+  Name = c("BF<sub>10</sub> - N(0, 0.1)", "BF<sub>20</sub> - N(0, 0.05)",  "BF<sub>30</sub> - N(0, 0.02)", "BF<sub>40</sub> - N(0.04, 0.02)"),
+  `Bayes Factor` = c(3, 6, 8, 12)
+)
 
 ```
 
 
-# Spillover region (critical +1)
+Make it into a table
+
+```{r}
 
 
-# Pre-critical region (critical -1)
+BF_table <- bayes_factors |> 
+  gt() |> 
+  cols_label(
+    Name = "Comparison",
+    `Bayes Factor` = "Bayes Factor"
+  ) |> 
+  tab_style(
+    style = cell_text(weight = "normal"),
+    locations = cells_column_labels(everything())
+  ) |> 
+  fmt_number(
+    columns = c(`Bayes Factor`),
+    decimals = 0
+  ) |> 
+  opt_table_font(font = google_font("Tinos"))|> 
+  tab_options(heading.title.font.size = 14) |> 
+  fmt_markdown(columns = c(Name))
 
+BF_table
+
+gtsave(BF_table, file = "bf_table4.png")
+
+```
 
 
 # Relative Clause Verb
+
+Models with word length as fixed effect:
 
 
 Agnostic and small - N(0, 0.02)
 
 ```{r}
 
-fit_rcv_small <- brm(rt ~ singplur +
+fit_rcv_small <- brm(rt ~ singplur + c_wl +
                        (singplur | subj) +
                        (singplur | item),
                      family = lognormal(),
                      prior = c(
                        prior(normal(6.5, 0.8), class = Intercept),
                        prior(normal(0, 0.02), class = b, coef = singplur),
+                       prior(normal(0, 0.05), class = b, coef = c_wl),
                        prior(normal(0, 1), class = sigma),
                        prior(normal(0, 1), class = sd),
                        prior(lkj(2), class = cor)),
@@ -1466,8 +1246,6 @@ fit_rcv_small <- brm(rt ~ singplur +
                      warmup = 2000,
                      save_pars = save_pars(all = TRUE)
                      )
-
-#plot(fit_rcv_small)
 
 short_summary(fit_rcv_small)
 
@@ -1478,13 +1256,14 @@ Agnostic and medium - N(0, 0.05)
 
 ```{r}
 
-fit_rcv_med <- brm(rt ~ singplur +
+fit_rcv_med <- brm(rt ~ singplur + c_wl +
                      (singplur | subj) +
                      (singplur | item),
                    family = lognormal(),
                    prior = c(
                      prior(normal(6.5, 0.8), class = Intercept),
                      prior(normal(0, 0.05), class = b, coef = singplur),
+                     prior(normal(0, 0.05), class = b, coef = c_wl),
                      prior(normal(0, 1), class = sigma),
                      prior(normal(0, 1), class = sd),
                      prior(lkj(2), class = cor)),
@@ -1493,97 +1272,10 @@ fit_rcv_med <- brm(rt ~ singplur +
                    warmup = 2000,
                    save_pars = save_pars(all = TRUE)
                    )
-
-#plot(fit_rcv_med)
 
 short_summary(fit_rcv_med)
 
 ```
-
-
-Agnostic and large - N(0, 1)
-
-```{r}
-
-fit_rcv_large <- brm(rt ~ singplur +
-                       (singplur | subj) +
-                       (singplur | item),
-                     family = lognormal(),
-                     prior = c(
-                       prior(normal(6.5, 0.8), class = Intercept),
-                       prior(normal(0, 1), class = b, coef = singplur),
-                       prior(normal(0, 1), class = sigma),
-                       prior(normal(0, 1), class = sd),
-                       prior(lkj(2), class = cor)),
-                     data = rcv,
-                     iter = 20000,
-                     warmup = 2000,
-                     save_pars = save_pars(all = TRUE)
-                     )
-
-#plot(fit_rcv_large)
-
-short_summary(fit_rcv_large)
-
-```
-
-
-
-Negative and medium (because of word length) (-0.04, 0.05)
-
-
-```{r}
-
-fit_rcv_neg <- brm(rt ~ singplur +
-                     (singplur | subj) +
-                     (singplur | item),
-                   family = lognormal(),
-                   prior = c(
-                     prior(normal(6.5, 0.8), class = Intercept),
-                     prior(normal(-0.04, 0.05), class = b, coef = singplur),
-                     prior(normal(0, 1), class = sigma),
-                     prior(normal(0, 1), class = sd),
-                     prior(lkj(2), class = cor)),
-                   data = rcv,
-                   iter = 20000,
-                   warmup = 2000,
-                   save_pars = save_pars(all = TRUE)
-                   )
-
-```
-
-
-
-
-
-Model with word length difference as a predictor 
-
-```{r}
-
-rcv_word <- dat |> 
-  mutate(aux_lenght = ifelse(condition == "plur", 5, 2))
-
-fit_rcv_word <- brm(rt ~ singplur + wordl +
-                      (singplur + wordl | subj) +
-                      (singplur + wordl | item),
-                    family = lognormal(),
-                    prior = c(
-                      prior(normal(6.5, 0.8), class = Intercept),
-                      prior(normal(0, 0.05), class = b, coef = singplur),
-                      prior(normal(0, 0.05), class = b, coef = wordl),
-                      prior(normal(0, 1), class = sigma),
-                      prior(normal(0, 1), class = sd),
-                      prior(lkj(2), class = cor)),
-                    data = rcv_word,
-                    iter = 20000,
-                    warmup = 2000,
-                    save_pars = save_pars(all = TRUE)
-                    )
-
-```
-
-
-
 
 
 Look at the posteriors for the slope
@@ -1598,109 +1290,55 @@ ppd_rcv_med <- mcmc_dens(fit_rcv_med, pars = variables(fit_rcv_med)[2]) +
   ggtitle("Normal(0, 0.05)") +
   theme(plot.title = element_text(size = 10))
 
-ppd_rcv_large <- mcmc_dens(fit_rcv_large, pars = variables(fit_rcv_large)[2]) + 
-  ggtitle("Normal(0, 1)") +
-  theme(plot.title = element_text(size = 10))
 
-ppd_rcv_enth_post <- mcmc_dens(fit_rcv_enth_post, pars = variables(fit_rcv_enth_post)[2]) + 
-  ggtitle("Normal(0.06, 0.02)") +
-  theme(plot.title = element_text(size = 10))
 
-rcv_post_dist <- (ppd_rcv_small_post + ppd_rcv_med_post) /
-  (ppd_rcv_large_post + ppd_rcv_enth_post)
+
+rcv_post_dist <- (ppd_rcv_small + ppd_rcv_med)
 
 rcv_post_dist
 
-ggsave("rcv_post_dist.png", rcv_post_dist, width = 6, height = 4, dpi = 300)
-
 ```
 
 
-Now we can look at how the different priors for the slope parameter impact the posterior difference between conditions.
-
-Extract draws for Intercept and Slope posteriors, and compute the median difference between conditions:
-
-```{r, results='hide', message=FALSE, warning=FALSE}
-
-rcv_med_diff_small <- as_draws_df(fit_rcv_small_post)[c("b_singplur", "b_Intercept")] |> 
-  mutate(
-    med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
-  ) |> 
-  select(med_diff)
-
-rcv_med_diff_med <- as_draws_df(fit_rcv_med_post)[c("b_singplur", "b_Intercept")] |> 
-  mutate(
-    med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
-  ) |> 
-  select(med_diff)
-
-rcv_med_diff_large <- as_draws_df(fit_rcv_large_post)[c("b_singplur", "b_Intercept")] |> 
-  mutate(
-    med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
-  ) |> 
-  select(med_diff)
-
-rcv_med_diff_enth <- as_draws_df(fit_rcv_enth_post)[c("b_singplur", "b_Intercept")] |> 
-  mutate(
-    med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
-  ) |> 
-  select(med_diff)
+Models using residual RTs as dependent variable:
 
 
-
-```
-
-
-Combine the data and generate a summary table:
+Agnostic and small - N(0, 0.02)
 
 ```{r}
 
-combined_rcv_med_diff_beta <- data.frame(rcv_med_diff_small, 
-                                         rcv_med_diff_med, 
-                                         rcv_med_diff_large, 
-                                         rcv_med_diff_enth
-                                         )
+fit_rcv_small_res <- brm(residual_rt ~ singplur +
+                       (singplur | subj) +
+                       (singplur | item),
+                     family = gaussian(),
+                     prior = c(
+                       prior(normal(6.5, 0.8), class = Intercept),
+                       prior(normal(0, 0.02), class = b, coef = singplur),
+                       prior(normal(0, 1), class = sigma),
+                       prior(normal(0, 1), class = sd),
+                       prior(lkj(2), class = cor)),
+                     data = rcv,
+                     iter = 20000,
+                     warmup = 2000,
+                     save_pars = save_pars(all = TRUE)
+                     )
 
-
-rcv_summ_med_diff <- data.frame(
-  Prior = c("Normal(0, 0.02)", "Normal(0, 0.05)", "Normal(0, 1)", "Normal(0.06, 0.02)"),
-  'Mean diff (ms)' = round(apply(combined_rcv_med_diff_beta, 2, mean), 3),
-  Q2.5 = round(apply(combined_rcv_med_diff_beta, 2, function(x) quantile(x, 0.025)), 3),
-  Q97.5 = round(apply(combined_rcv_med_diff_beta, 2, function(x) quantile(x, 0.975)), 3),
-  check.names = FALSE
-)
-
-rownames(rcv_summ_med_diff) <- NULL
-
-
-rcv_post_table <- gt(rcv_summ_med_diff, rowname_col = "Prior") |> 
-  tab_stubhead(label = "Prior") |> 
-  tab_header("A summary, under different priors, of the posterior
-distributions of the mean difference between the two conditions
-reading times, on the matrix verb region,
-back-transformed to the millisecond scale.") |> 
-  tab_options(heading.title.font.size = 14) |> 
-  opt_table_font(font = google_font("Tinos")) |> 
-  tab_options(container.height = 300)
-
-
-rcv_post_table
-
-gtsave(rcv_post_table, file = "rcv_post_table.png")
+short_summary(fit_rcv_small_res)
 
 ```
 
 
-Null model (varying intercepts but no predictor)
+Agnostic and medium - N(0, 0.05)
 
 ```{r}
 
-fit_rcv_null <- brm(rt ~ 1 + 
-                     (singplur | subj) + 
+fit_rcv_med_res <- brm(residual_rt ~ singplur +
+                     (singplur | subj) +
                      (singplur | item),
-                   family = lognormal(),
+                   family = gaussian(),
                    prior = c(
                      prior(normal(6.5, 0.8), class = Intercept),
+                     prior(normal(0, 0.05), class = b, coef = singplur),
                      prior(normal(0, 1), class = sigma),
                      prior(normal(0, 1), class = sd),
                      prior(lkj(2), class = cor)),
@@ -1710,332 +1348,9 @@ fit_rcv_null <- brm(rt ~ 1 +
                    save_pars = save_pars(all = TRUE)
                    )
 
-short_summary(fit_rcv_null)
+short_summary(fit_rcv_med_res)
 
 ```
-
-
-**Bayes Factors**
-
-Agnostic and small - N(0, 0.02)
-
-```{r}
-
-bayes_factor(fit_rcv_small_post, fit_rcv_null)
-
-
-```
-
-Agnostic and medium - N(0, 0.05)
-
-```{r}
-
-bayes_factor(fit_rcv_med_post, fit_rcv_null)
-
-```
-
-
-Agnostic and large - N(0, 1)
-
-```{r}
-
-bayes_factor(fit_rcv_large_post, fit_rcv_null)
-
-```
-
-
-Positive and small - N(0.06, 0.02)
-
-```{r}
-
-bayes_factor(fit_rcv_enth_post, fit_rcv_null)
-
-```
-
-
-
-
-# Relative Clause Verb spillover region (rcv +1)
-
-
-Agnostic and small - N(0, 0.02)
-
-```{r}
-
-fit_rcv_spill_small_post <- brm(rt ~ singplur +
-                           (singplur | subj) +
-                           (singplur | item),
-                         family = lognormal(),
-                         prior = c(
-                           prior(normal(6.5, 0.8), class = Intercept),
-                           prior(normal(0, 0.02), class = b, coef = singplur),
-                           prior(normal(0, 1), class = sigma),
-                           prior(normal(0, 1), class = sd),
-                           prior(lkj(2), class = cor)),
-                         data = rcv_spill,
-                         #iter = 20000,
-                         #warmup = 2000,
-                         #save_pars = save_pars(all = TRUE)
-                         )
-
-#plot(fit_rcv_small_post)
-
-short_summary(fit_rcv_small_post)
-
-```
-
-
-Agnostic and medium - N(0, 0.05)
-
-```{r}
-
-fit_rcv_spill_med_post <- brm(rt ~ singplur +
-                         (singplur | subj) +
-                         (singplur | item),
-                       family = lognormal(),
-                       prior = c(
-                         prior(normal(6.5, 0.8), class = Intercept),
-                         prior(normal(0, 0.05), class = b, coef = singplur),
-                         prior(normal(0, 1), class = sigma),
-                         prior(normal(0, 1), class = sd),
-                         prior(lkj(2), class = cor)),
-                       data = rcv_spill,
-                       #iter = 20000,
-                       #warmup = 2000,
-                       #save_pars = save_pars(all = TRUE)
-                       )
-
-#plot(fit_rcv_med_post)
-
-short_summary(fit_rcv_med_post)
-
-```
-
-
-Agnostic and large - N(0, 1)
-
-```{r}
-
-fit_rcv_spill_large_post <- brm(rt ~ singplur +
-                           (singplur | subj) +
-                           (singplur | item),
-                         family = lognormal(),
-                         prior = c(
-                           prior(normal(6.5, 0.8), class = Intercept),
-                           prior(normal(0, 1), class = b, coef = singplur),
-                           prior(normal(0, 1), class = sigma),
-                           prior(normal(0, 1), class = sd),
-                           prior(lkj(2), class = cor)),
-                         data = rcv_spill,
-                         #iter = 20000,
-                         #warmup = 2000,
-                         #save_pars = save_pars(all = TRUE)
-                         )
-
-#plot(fit_rcv_large_post)
-
-short_summary(fit_rcv_large_post)
-
-```
-
-
-Positive and small - N(0.06, 0.02)
-
-```{r}
-
-fit_rcv_spill_enth_post <- brm(rt ~ singplur +
-                          (singplur | subj) +
-                          (singplur | item),
-                        family = lognormal(),
-                        prior = c(
-                          prior(normal(6.5, 0.8), class = Intercept),
-                          prior(normal(0.06, 0.02), class = b, coef = singplur),
-                          prior(normal(0, 1), class = sigma),
-                          prior(normal(0, 1), class = sd),
-                          prior(lkj(2), class = cor)),
-                        data = rcv_spill,
-                        #iter = 20000,
-                        #warmup = 2000,
-                        #save_pars = save_pars(all = TRUE)
-                        )
-
-#plot(fit_rcv_enth_post)
-
-short_summary(fit_rcv_enth_post)
-
-```
-
-
-Look at the posteriors for the slope
-
-```{r}
-
-ppd_rcv_spill_small_post <- mcmc_dens(fit_rcv_spill_small_post, pars = variables(fit_rcv_spill_small_post)[2]) + 
-  ggtitle("Normal(0, 0.02)") +
-  theme(plot.title = element_text(size = 10))
-
-ppd_rcv_spill_med_post <- mcmc_dens(fit_rcv_spill_med_post, pars = variables(fit_rcv_spill_med_post)[2]) + 
-  ggtitle("Normal(0, 0.05)") +
-  theme(plot.title = element_text(size = 10))
-
-ppd_rcv_spill_large_post <- mcmc_dens(fit_rcv_spill_large_post, pars = variables(fit_rcv_spill_large_post)[2]) + 
-  ggtitle("Normal(0, 1)") +
-  theme(plot.title = element_text(size = 10))
-
-ppd_rcv_spill_enth_post <- mcmc_dens(fit_rcv_spill_enth_post, pars = variables(fit_rcv_spill_enth_post)[2]) + 
-  ggtitle("Normal(0.06, 0.02)") +
-  theme(plot.title = element_text(size = 10))
-
-rcv_spill_post_dist <- (ppd_rcv_spill_small_post + ppd_rcv_spill_med_post) /
-  (ppd_rcv_spill_large_post + ppd_rcv_spill_enth_post)
-
-rcv_spill_post_dist
-
-ggsave("rcv_spill_post_dist.png", rcv_spill_post_dist, width = 6, height = 4, dpi = 300)
-
-```
-
-
-Now we can look at how the different priors for the slope parameter impact the posterior difference between conditions.
-
-Extract draws for Intercept and Slope posteriors, and compute the median difference between conditions:
-
-```{r, results='hide', message=FALSE, warning=FALSE}
-
-rcv_spill_med_diff_small <- as_draws_df(fit_rcv_spill_small_post)[c("b_singplur", "b_Intercept")] |> 
-  mutate(
-    med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
-  ) |> 
-  select(med_diff)
-
-rcv_spill_med_diff_med <- as_draws_df(fit_rcv_spill_med_post)[c("b_singplur", "b_Intercept")] |> 
-  mutate(
-    med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
-  ) |> 
-  select(med_diff)
-
-rcv_spill_med_diff_large <- as_draws_df(fit_rcv_spill_large_post)[c("b_singplur", "b_Intercept")] |> 
-  mutate(
-    med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
-  ) |> 
-  select(med_diff)
-
-rcv_spill_med_diff_enth <- as_draws_df(fit_rcv_spill_enth_post)[c("b_singplur", "b_Intercept")] |> 
-  mutate(
-    med_diff = (exp(b_Intercept + b_singplur) - exp(b_Intercept - b_singplur))
-  ) |> 
-  select(med_diff)
-
-
-
-```
-
-
-Combine the data and generate a summary table:
-
-```{r}
-
-combined_rcv_spill_med_diff_beta <- data.frame(rcv_spill_med_diff_small, 
-                                         rcv_spill_med_diff_med, 
-                                         rcv_spill_med_diff_large, 
-                                         rcv_spill_med_diff_enth
-                                         )
-
-
-rcv_spill_summ_med_diff <- data.frame(
-  Prior = c("Normal(0, 0.02)", "Normal(0, 0.05)", "Normal(0, 1)", "Normal(0.06, 0.02)"),
-  'Mean diff (ms)' = round(apply(combined_rcv_spill_med_diff_beta, 2, mean), 3),
-  Q2.5 = round(apply(combined_rcv_spill_med_diff_beta, 2, function(x) quantile(x, 0.025)), 3),
-  Q97.5 = round(apply(combined_rcv_spill_med_diff_beta, 2, function(x) quantile(x, 0.975)), 3),
-  check.names = FALSE
-)
-
-rownames(rcv_spill_summ_med_diff) <- NULL
-
-
-rcv_spill_post_table <- gt(rcv_spill_summ_med_diff, rowname_col = "Prior") |> 
-  tab_stubhead(label = "Prior") |> 
-  tab_header("A summary, under different priors, of the posterior
-distributions of the mean difference between the two conditions
-reading times, on the matrix verb region,
-back-transformed to the millisecond scale.") |> 
-  tab_options(heading.title.font.size = 14) |> 
-  opt_table_font(font = google_font("Tinos")) |> 
-  tab_options(container.height = 300)
-
-
-rcv_spill_post_table
-
-gtsave(rcv_spill_post_table, file = "rcv_post_table.png")
-
-```
-
-
-Null model (varying intercepts but no predictor)
-
-```{r}
-
-fit_rcv_spill_null <- brm(rt ~ 1 + 
-                     (singplur | subj) + 
-                     (singplur | item),
-                   family = lognormal(),
-                   prior = c(
-                     prior(normal(6.5, 0.8), class = Intercept),
-                     prior(normal(0, 1), class = sigma),
-                     prior(normal(0, 1), class = sd),
-                     prior(lkj(2), class = cor)),
-                   data = rcv_spill,
-                   iter = 20000,
-                   warmup = 2000,
-                   save_pars = save_pars(all = TRUE)
-                   )
-
-short_summary(fit_rcv_spill_null)
-
-```
-
-
-**Bayes Factors**
-
-Agnostic and small - N(0, 0.02)
-
-```{r}
-
-bayes_factor(fit_rcv_spill_small_post, fit_rcv_spill_null)
-
-
-
-```
-
-Agnostic and medium - N(0, 0.05)
-
-```{r}
-
-bayes_factor(fit_rcv_spill_med_post, fit_rcv_spill_null)
-
-```
-
-
-Agnostic and large - N(0, 1)
-
-```{r}
-
-bayes_factor(fit_rcv_spill_large_post, fit_rcv_spill_null)
-
-```
-
-
-Positive and small - N(0.06, 0.02)
-
-```{r}
-
-bayes_factor(fit_rcv_spill_enth_post, fit_rcv_spill_null)
-
-```
-
-
-
-# Relative Clause onset region (rcv -1)
 
 
 ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -2058,9 +1373,12 @@ dat_slow <- dat |>
 
 length(unique(dat_slow$subj))
 
+length(unique(dat$subj))
+
+
 ```
 
-This leaves us with 125/240 subjects
+This leaves us with 123/235 subjects
 
 
 Look at the numbers
@@ -2076,23 +1394,8 @@ dat_slow |>
 
 ```
 
-The raw numerical effect size is a bit higher than the one for the complete dataset. Let's look at a boxplot
+The raw numerical effect size is a bit higher than the one for the complete dataset (but the two values are obviously also higher).
 
-```{r}
-
-box_logmv <- ggplot(
-  data = subset(dat_slow, roi_number == 10),
-  aes(y = log(rt), x = condition)
-) +
-  geom_boxplot(alpha = 0.7) +
-  labs(x = "Condition",
-       y = "") +
-  theme_minimal() +
-  theme(plot.title = element_text(size = 10), axis.title = element_text(size = 10))
-
-box_logmv
-
-```
 
 Run a frequentist LMEM
 
@@ -2126,7 +1429,7 @@ fit_mv_slow <- brm(rt ~ 1 + singplur +
                      prior(normal(0, 1), class = sd),
                      prior(lkj(2), class = cor)),
                    data = subset(dat_slow, roi_number == 10),
-                   iter = 4000,
+                   iter = 20000,
                    warmup = 2000,
                    save_pars = save_pars(all = TRUE)
                    )
@@ -2135,6 +1438,8 @@ short_summary(fit_mv_slow)
 
 ```
 
+
+Null model
 
 ```{r}
 
@@ -2147,7 +1452,7 @@ fit_mv_slow_null <- brm(rt ~ 1 +
                      prior(normal(0, 1), class = sigma),
                      prior(normal(0, 1), class = sd)),
                    data = subset(dat_slow, roi_number == 10),
-                   iter = 4000,
+                   iter = 20000,
                    warmup = 2000,
                    save_pars = save_pars(all = TRUE)
                    )
@@ -2157,6 +1462,8 @@ short_summary(fit_mv_slow_null)
 
 ```
 
+
+Bayes factor
 
 ```{r}
 
